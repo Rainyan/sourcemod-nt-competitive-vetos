@@ -17,7 +17,8 @@ static const String:g_sSound_Results[] = "player/CPcaptured.wav";
 
 #define MAP_VETO_TITLE "MAP PICK"
 
-//#define DEBUG
+// Debug flag for forcing all the vetos on the Jinrai team side.
+//#define DEBUG_ALL_VETOS_BY_JINRAI
 
 enum VetoStage {
 	VETO_STAGE_FIRST_TEAM_BAN = 0,
@@ -275,7 +276,7 @@ void DoCoinFlip(int coinflip_stage = 0)
 		CreateTimer(0.33, Timer_CoinFlip, coinflip_stage + 1, TIMER_FLAG_NO_MAPCHANGE);
 	}
 	else {
-#if defined DEBUG
+#if defined DEBUG_ALL_VETOS_BY_JINRAI
 		_first_veto_team = TEAM_JINRAI;
 #else
 		SetRandomSeed(GetTime());
@@ -351,8 +352,7 @@ void DoVeto()
 	}
 	
 	int picking_team = GetPickingTeam();
-	// Stack all the picks to Jinrai for debugging
-#if defined DEBUG
+#if defined DEBUG_ALL_VETOS_BY_JINRAI
 	picking_team = TEAM_JINRAI;
 #endif
 	
@@ -477,9 +477,6 @@ public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int sele
 			g_hCvar_JinraiName.GetString(jinrai_name, sizeof(jinrai_name));
 			g_hCvar_NsfName.GetString(nsf_name, sizeof(nsf_name));
 			
-#if defined DEBUG
-			PrintToChatAll("MenuHandler_DoPick: Client %d selected %d", client, selection);
-#endif
 			char chosen_map[PLATFORM_MAX_PATH];
 			if (!menu.GetItem(selection, chosen_map, sizeof(chosen_map))) {
 				ThrowError("Failed to retrieve selection (%d)", selection);
@@ -532,7 +529,7 @@ int GetChosenMapIndex(const char[] map)
 
 int GetOpposingTeam(int team)
 {
-#if defined DEBUG
+#if defined DEBUG_ALL_VETOS_BY_JINRAI
 	return TEAM_JINRAI;
 #else
 	return (team == TEAM_JINRAI) ? TEAM_NSF : TEAM_JINRAI;
@@ -571,7 +568,7 @@ bool ResetPicksIfShould()
 
 bool IsPlayingTeamEmpty()
 {
-#if defined DEBUG
+#if defined DEBUG_ALL_VETOS_BY_JINRAI
 	return GetNumPlayersInTeam(TEAM_JINRAI) == 0;
 #else
 	return GetNumPlayersInTeam(TEAM_JINRAI) == 0 || GetNumPlayersInTeam(TEAM_NSF) == 0;
