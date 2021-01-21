@@ -377,7 +377,7 @@ void DoCoinFlip(const int coinflip_stage = 0)
 		}
 		panel.Send(client, MenuHandler_DoNothing, COINFLIP_RESULTS_SHOW_DURATION);
 	}
-	delete panel; // TODO/FIXME: is this double deletion??? See callback
+	delete panel; // TODO/FIXME: is this double deletion??? See the callback.
 }
 
 public Action Timer_StartVeto(Handle timer)
@@ -753,7 +753,7 @@ void AnnounceMaps()
 		}
 		panel.Send(client, MenuHandler_DoNothing, MENU_TIME_FOREVER);
 	}
-	delete panel;
+	delete panel; // TODO/FIXME: is this double deletion??? See the callback.
 	
 	EmitSoundToAll(g_sSound_Results);
 	
