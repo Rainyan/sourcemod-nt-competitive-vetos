@@ -439,8 +439,16 @@ void DoVeto()
 	}
 	
 	Menu picker_menu = new Menu(MenuHandler_DoPick);
-	Panel spec_panel = new Panel();
+	// We're re-drawing this Menu anyway so that client can't accidentally
+	// lock themselves out of the picks, but removing the exit button
+	// to make the menu cleaner.
+	// TODO 1: make sure this property works with NT.
+	// TODO 2: "No vote" option, and make it actually a vote.
+	// Have to look into working with other SM votes for edge cases, too: MenuAction_End --> MenuEnd_VotingDone, etc.
+	// See: https://sm.alliedmods.net/new-api/menus/__raw
+	picker_menu.ExitButton = false;
 	
+	Panel spec_panel = new Panel();
 	spec_panel.SetTitle(MAP_VETO_TITLE);
 	spec_panel.DrawText(" ");
 	
