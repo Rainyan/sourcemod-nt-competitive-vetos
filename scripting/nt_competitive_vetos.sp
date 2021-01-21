@@ -377,7 +377,7 @@ void DoCoinFlip(const int coinflip_stage = 0)
 		}
 		panel.Send(client, MenuHandler_DoNothing, COINFLIP_RESULTS_SHOW_DURATION);
 	}
-	delete panel;
+	delete panel; // TODO/FIXME: is this double deletion??? See callback
 }
 
 public Action Timer_StartVeto(Handle timer)
