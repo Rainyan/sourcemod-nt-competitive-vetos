@@ -63,7 +63,7 @@ public Plugin myinfo = {
 	url = "https://github.com/Rainyan/sourcemod-nt-competitive-vetos"
 };
 
-// nt_competitive
+// Native from plugin: nt_competitive
 native bool Competitive_IsLive();
 
 public void OnPluginStart()
@@ -712,12 +712,12 @@ void AnnounceMaps()
 	panel.SetTitle("Map pick results:");
 	panel.DrawText(" ");
 	
-	char jinrai_name[64];
-	char nsf_name[64];
-	g_hCvar_JinraiName.GetString(jinrai_name, sizeof(jinrai_name));
-	g_hCvar_NsfName.GetString(nsf_name, sizeof(nsf_name));
+	char jinrai_name[MAX_CUSTOM_TEAM_NAME_LEN];
+	char nsf_name[MAX_CUSTOM_TEAM_NAME_LEN];
+	GetCompetitiveTeamName(TEAM_JINRAI, jinrai_name, sizeof(jinrai_name));
+	GetCompetitiveTeamName(TEAM_NSF, nsf_name, sizeof(nsf_name));
 	
-	char buffer[128];
+	char buffer[PLATFORM_MAX_PATH + MAX_CUSTOM_TEAM_NAME_LEN + 13];
 	
 	PrintToConsoleAll("\n== MAP PICK RESULTS ==");
 	LogToGame("\n== MAP PICK RESULTS ==");
