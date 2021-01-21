@@ -55,7 +55,7 @@ public Plugin myinfo = {
 	description = "Helper plugin for doing tournament map picks/vetos.",
 	author = "Rain",
 	version = PLUGIN_VERSION,
-	url = "https://gist.github.com/Rainyan/731f03be5ee0e2b3d018a8b5518c7ea2"
+	url = "https://github.com/Rainyan/sourcemod-nt-competitive-vetos"
 };
 
 // nt_competitive
@@ -412,7 +412,6 @@ public Action Timer_CoinFlip(Handle timer, int coinflip_stage)
 
 public int MenuHandler_DoNothing(Menu menu, MenuAction action, int param1, int param2)
 {
-	return 0;
 }
 
 public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int selection)
