@@ -520,7 +520,7 @@ void DoVeto()
 			spec_panel.Send(client, MenuHandler_DoNothing, 2);
 		}
 	}
-	delete spec_panel;
+	delete spec_panel; // TODO/FIXME: is this double deletion??? See the callback.
 }
 
 public Action Timer_CoinFlip(Handle timer, int coinflip_stage)
