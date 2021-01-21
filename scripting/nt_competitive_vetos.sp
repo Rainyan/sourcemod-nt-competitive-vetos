@@ -200,7 +200,7 @@ public Action Cmd_StartVetoFirst(int client, int argc)
 		return Plugin_Handled;
 	}
 	
-	char team_name[7];
+	char team_name[7]; // "Jinrai" + '\0'
 	GetCmdArg(1, team_name, sizeof(team_name));
 	int team_that_goes_first;
 	if (StrEqual(team_name, "Jinrai", false)) {
@@ -219,7 +219,10 @@ public Action Cmd_StartVetoFirst(int client, int argc)
 	_wants_to_start_veto_nsf = true;
 	StartNewVeto(team_that_goes_first);
 	
-	PrintToChatAll("%s Veto has been manually started by admin (%s goes first).", g_sTag, team_name);
+	PrintToChatAll("%s Veto has been manually started by admin (team %s goes first).",
+		g_sTag,
+		(team_that_goes_first == TEAM_JINRAI) ? "Jinrai" : "NSF"); // Not reusing the name buffer to ensure Nice Capitalization.
+	
 	return Plugin_Handled;
 }
 
