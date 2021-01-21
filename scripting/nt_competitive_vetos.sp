@@ -457,12 +457,19 @@ public int MenuHandler_DoNothing(Menu menu, MenuAction action, int param1, int p
 	}
 }
 
+// Note that the callback params are guaranteed to actually represent clien & selection only in some MenuActions;
+// assuming (action == MenuAction_Select) in this context.
 public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int selection)
 {
-	if (action == MenuAction_End || ResetPicksIfShould()) {
+	if (action == MenuAction_End) {
 		delete menu;
 	}
-	else if (client > 0 && client <= MaxClients && IsClientInGame(client) && action == MenuAction_Select) {
+	
+	bool veto_was_cancelled = ResetPicksIfShould();
+	
+	if (!veto_was_cancelled && client > 0 && client <= MaxClients &&
+		IsClientInGame(client) && !IsFakeClient(client) && action == MenuAction_Select)
+	{
 		int client_team = GetClientTeam(client);
 		if (client_team == GetPickingTeam()) {
 			char jinrai_name[MAX_CUSTOM_TEAM_NAME_LEN];
