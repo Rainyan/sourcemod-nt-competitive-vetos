@@ -30,7 +30,6 @@ enum VetoStage {
 };
 
 // TODO: config
-// TODO: validate map name spelling
 #define NUM_MAPS 7
 static const String:_maps[NUM_MAPS][] = {
 	"nt_ballistrade_ctg",
@@ -453,6 +452,9 @@ public Action Timer_CoinFlip(Handle timer, int coinflip_stage)
 
 public int MenuHandler_DoNothing(Menu menu, MenuAction action, int param1, int param2)
 {
+	if (action == MenuAction_End) {
+		delete menu;
+	}
 }
 
 public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int selection)
