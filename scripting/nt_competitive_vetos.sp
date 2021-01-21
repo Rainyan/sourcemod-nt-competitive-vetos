@@ -71,7 +71,9 @@ public void OnPluginStart()
 	CreateConVar("sm_nt_tournament_map_picker_version", PLUGIN_VERSION, "NT Tournament Map Picker plugin version.", FCVAR_DONTRECORD);
 	
 	RegAdminCmd("sm_vetofirst", Cmd_StartVetoFirst, ADMFLAG_GENERIC, "Admin command to select which team should pick first (skips the coin flip).");
+	
 	RegConsoleCmd("sm_veto", Cmd_StartVeto, "Start the map picks/vetos.");
+	RegConsoleCmd("sm_unveto", Cmd_CancelVeto, "Start the map picks/vetos.");
 	
 	RegAdminCmd("sm_resetveto", Cmd_ResetVeto, ADMFLAG_GENERIC, "Admin command to reset a veto in progress.");
 }
@@ -133,7 +135,7 @@ public Action Cmd_StartVeto(int client, int argc)
 		return Plugin_Handled;
 	}
 	else if (_is_veto_active) {
-		ReplyToCommand(client, "%s Picks already active.", g_sTag);
+		ReplyToCommand(client, "%s Map picks/veto is already active.", g_sTag);
 		return Plugin_Handled;
 	}
 	
@@ -158,24 +160,75 @@ public Action Cmd_StartVeto(int client, int argc)
 	if (team == TEAM_JINRAI) {
 		if (_wants_to_start_veto_jinrai) {
 			ReplyToCommand(client, "%s Already ready for veto. Please use !unveto if you wish to cancel.", g_sTag);
+			return Plugin_Handled;
 		}
 		else {
 			_wants_to_start_veto_jinrai = true;
-			PrintToChatAll("%s Team Jinrai is ready to start map picks/veto.", g_sTag);
+			PrintToChatAll("%s Team %s is ready to start map picks/veto.", g_sTag, team_name);
 		}
 	}
 	else {
 		if (_wants_to_start_veto_nsf) {
 			ReplyToCommand(client, "%s Already ready for veto. Please use !unveto if you wish to cancel.", g_sTag);
+			return Plugin_Handled;
 		}
 		else {
 			_wants_to_start_veto_nsf = true;
-			PrintToChatAll("%s Team NSF is ready to start map picks/veto.", g_sTag);
+			PrintToChatAll("%s Team %s is ready to start map picks/veto.", g_sTag, team_name);
 		}
 	}
 	
 	if (!CheckIfReadyToStartVeto()) {
 		PrintToChatAll("%s Waiting for the other team to confirm with !veto.", g_sTag);
+	}
+	
+	return Plugin_Handled;
+}
+
+public Action Cmd_CancelVeto(int client, int argc)
+{
+	if (client == 0) {
+		ReplyToCommand(client, "%s This command cannot be executed by the server.", g_sTag);
+		return Plugin_Handled;
+	}
+	else if (_is_veto_active) {
+		ReplyToCommand(client, "%s Map picks/veto is already active.", g_sTag);
+		return Plugin_Handled;
+	}
+	
+	int team = GetClientTeam(client);
+	
+	if (team <= TEAM_SPECTATOR) {
+		ReplyToCommand(client, "%s Picks can only be initiated by the players.", g_sTag);
+		return Plugin_Handled;
+	}
+	else if (Competitive_IsLive()) {
+		ReplyToCommand(client, "%s Match is already live; cannot modify a veto right now.", g_sTag);
+		return Plugin_Handled;
+	}
+	
+	char team_name[MAX_CUSTOM_TEAM_NAME_LEN];
+	GetCompetitiveTeamName(team, team_name, sizeof(team_name));
+	
+	if (team == TEAM_JINRAI) {
+		if (!_wants_to_start_veto_jinrai) {
+			ReplyToCommand(client, "%s Already not ready for veto. Please use !veto if you wish to start a veto.", g_sTag);
+			return Plugin_Handled;
+		}
+		else {
+			_wants_to_start_veto_jinrai = false;
+			PrintToChatAll("%s Team %s is no longer ready for !veto.", g_sTag, team_name);
+		}
+	}
+	else {
+		if (!_wants_to_start_veto_nsf) {
+			ReplyToCommand(client, "%s Already not ready for veto. Please use !veto if you wish to start a veto.", g_sTag);
+			return Plugin_Handled;
+		}
+		else {
+			_wants_to_start_veto_nsf = false;
+			PrintToChatAll("%s Team %s is no longer ready for !veto.", g_sTag, team_name);
+		}
 	}
 	
 	return Plugin_Handled;
@@ -247,7 +300,8 @@ void StartNewVeto(int team_goes_first = 0)
 	ClearVeto();
 	_is_veto_active = true;
 	
-	PrintToChatAll("%s Starting map picks/veto...");
+	PrintToChatAll("%s Starting map picks/veto...", g_sTag);
+	EmitSoundToAll(g_sSound_Results);
 	
 	if (team_goes_first == 0) {
 		DoCoinFlip();
@@ -262,10 +316,6 @@ void DoCoinFlip(int coinflip_stage = 0)
 {	
 	if (ResetPicksIfShould()) {
 		return;
-	}
-	
-	if (coinflip_stage == 0) {
-		EmitSoundToAll(g_sSound_Results);
 	}
 	
 	Panel panel = new Panel();
@@ -292,18 +342,22 @@ void DoCoinFlip(int coinflip_stage = 0)
 		GetCompetitiveTeamName(_first_veto_team, team_name, sizeof(team_name));
 		
 		char text[20 + MAX_CUSTOM_TEAM_NAME_LEN];
-		Format(text, sizeof(text), "Team %s vetoes first.", team_name);
+		// Still adding the "Flipping coin..." part here for visual continuity from the coin flipping stage.
+		Format(text, sizeof(text), "Flipping coin... Team %s vetoes first.", team_name);
 		
+		panel.DrawText(" ");
 		panel.DrawText(text);
 		
-		CreateTimer(2.0, Timer_StartVeto, _, TIMER_FLAG_NO_MAPCHANGE);
+#define COINFLIP_RESULTS_SHOW_DURATION 5
+		
+		CreateTimer(COINFLIP_RESULTS_SHOW_DURATION * 1.0, Timer_StartVeto, _, TIMER_FLAG_NO_MAPCHANGE);
 	}
 	
 	for (int client = 1; client <= MaxClients; ++client) {
 		if (!IsClientInGame(client) || IsFakeClient(client)) {
 			continue;
 		}
-		panel.Send(client, MenuHandler_DoNothing, 2);
+		panel.Send(client, MenuHandler_DoNothing, COINFLIP_RESULTS_SHOW_DURATION);
 	}
 	delete panel;
 }
