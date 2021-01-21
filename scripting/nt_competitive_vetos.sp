@@ -30,7 +30,7 @@ enum VetoStage {
 	NUM_STAGES
 };
 
-// TODO: config
+// TODO: Move map pool out of code into a config file, and allow any sized map pool.
 #define NUM_MAPS 7
 static const String:_maps[NUM_MAPS][] = {
 	"nt_ballistrade_ctg",
@@ -52,8 +52,8 @@ static VetoStage _veto_stage = VETO_STAGE_FIRST_TEAM_BAN;
 
 static int _first_veto_team;
 
-ConVar g_hCvar_JinraiName;
-ConVar g_hCvar_NsfName;
+ConVar g_hCvar_JinraiName = null;
+ConVar g_hCvar_NsfName = null;
 
 public Plugin myinfo = {
 	name = "NT Tournament Map Picker",
@@ -81,7 +81,7 @@ public void OnAllPluginsLoaded()
 	g_hCvar_JinraiName = FindConVar("sm_competitive_jinrai_name");
 	g_hCvar_NsfName = FindConVar("sm_competitive_nsf_name");
 	if (g_hCvar_JinraiName == null || g_hCvar_NsfName == null) {
-		SetFailState("Failed to look up nt_competitive team name cvars");
+		SetFailState("Failed to look up nt_competitive team name cvars. Is nt_competitive plugin enabled?");
 	}
 }
 
@@ -116,10 +116,13 @@ void ClearVeto()
 		_is_vetoed_by[i] = 0;
 		_is_picked_by[i] = 0;
 	}
+	
 	_is_veto_active = false;
 	_wants_to_start_veto_jinrai = false;
 	_wants_to_start_veto_nsf = false;
+	
 	_veto_stage = VETO_STAGE_FIRST_TEAM_BAN;
+	
 	_first_veto_team = 0;
 }
 
