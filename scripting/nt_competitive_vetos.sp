@@ -337,9 +337,9 @@ void DoCoinFlip(const int coinflip_stage = 0)
 	// Characters to represent the "coin flip" spinning around, for some appropriate suspense.
 	char coinflip_anim[][] = { "-", "\\", "|", "/" };
 	// How many 180 coin flips for the full animation, ie. 3 = 1.5 full rotations.
-#define NUM_COINFLIP_ANIMATION_ROTATIONS 3
+#define NUM_COINFLIP_ANIMATION_HALF_ROTATIONS 3
 	
-	if (coinflip_stage < sizeof(coinflip_anim) * NUM_COINFLIP_ANIMATION_ROTATIONS) {
+	if (coinflip_stage < sizeof(coinflip_anim) * NUM_COINFLIP_ANIMATION_HALF_ROTATIONS) {
 		char text[19];
 		Format(text, sizeof(text), "Flipping coin... %s", coinflip_anim[coinflip_stage % sizeof(coinflip_anim)]);
 		panel.DrawText(" ");
