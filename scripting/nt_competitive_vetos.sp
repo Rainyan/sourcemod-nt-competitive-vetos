@@ -5,9 +5,10 @@
 
 #include <neotokyo>
 
-#define PLUGIN_VERSION "0.1"
+#define PLUGIN_VERSION "0.2"
 
 #define NEO_MAX_PLAYERS 32
+#define MAX_CUSTOM_TEAM_NAME_LEN 64
 
 static const String:g_sTag[] = "[MAP PICK]";
 static const String:g_sSound_Veto[] = "ui/buttonrollover.wav";
@@ -44,7 +45,11 @@ static int _is_vetoed_by[NUM_MAPS];
 static int _is_picked_by[NUM_MAPS];
 
 static bool _is_veto_active;
+static bool _wants_to_start_veto_jinrai;
+static bool _wants_to_start_veto_nsf;
+
 static VetoStage _veto_stage = VETO_STAGE_FIRST_TEAM_BAN;
+
 static int _first_veto_team;
 
 ConVar g_hCvar_JinraiName;
@@ -112,6 +117,8 @@ void ClearVeto()
 		_is_picked_by[i] = 0;
 	}
 	_is_veto_active = false;
+	_wants_to_start_veto_jinrai = false;
+	_wants_to_start_veto_nsf = false;
 	_veto_stage = VETO_STAGE_FIRST_TEAM_BAN;
 	_first_veto_team = 0;
 }
@@ -126,7 +133,10 @@ public Action Cmd_StartVeto(int client, int argc)
 		ReplyToCommand(client, "%s Picks already active.", g_sTag);
 		return Plugin_Handled;
 	}
-	else if (GetClientTeam(client) <= TEAM_SPECTATOR) {
+	
+	int team = GetClientTeam(client);
+	
+	if (team <= TEAM_SPECTATOR) {
 		ReplyToCommand(client, "%s Picks can only be initiated by the players.", g_sTag);
 		return Plugin_Handled;
 	}
@@ -139,7 +149,31 @@ public Action Cmd_StartVeto(int client, int argc)
 		return Plugin_Handled;
 	}
 	
-	StartNewVeto();
+	char team_name[MAX_CUSTOM_TEAM_NAME_LEN];
+	GetCompetitiveTeamName(team, team_name, sizeof(team_name));
+	
+	if (team == TEAM_JINRAI) {
+		if (_wants_to_start_veto_jinrai) {
+			ReplyToCommand(client, "%s Already ready for veto. Please use !unveto if you wish to cancel.", g_sTag);
+		}
+		else {
+			_wants_to_start_veto_jinrai = true;
+			PrintToChatAll("%s Team Jinrai is ready to start map picks/veto.", g_sTag);
+		}
+	}
+	else {
+		if (_wants_to_start_veto_nsf) {
+			ReplyToCommand(client, "%s Already ready for veto. Please use !unveto if you wish to cancel.", g_sTag);
+		}
+		else {
+			_wants_to_start_veto_nsf = true;
+			PrintToChatAll("%s Team NSF is ready to start map picks/veto.", g_sTag);
+		}
+	}
+	
+	if (!CheckIfReadyToStartVeto()) {
+		PrintToChatAll("%s Waiting for the other team to confirm with !veto.", g_sTag);
+	}
 	
 	return Plugin_Handled;
 }
@@ -178,9 +212,21 @@ public Action Cmd_StartVetoFirst(int client, int argc)
 		return Plugin_Handled;
 	}
 	
-	PrintToChatAll("%s Veto has been manually started by admin (%s goes first).", g_sTag, team_name);
+	_wants_to_start_veto_jinrai = true;
+	_wants_to_start_veto_nsf = true;
 	StartNewVeto(team_that_goes_first);
+	
+	PrintToChatAll("%s Veto has been manually started by admin (%s goes first).", g_sTag, team_name);
 	return Plugin_Handled;
+}
+
+bool CheckIfReadyToStartVeto()
+{
+	if (_is_veto_active || !_wants_to_start_veto_jinrai || !_wants_to_start_veto_nsf) {
+		return false;
+	}
+	StartNewVeto();
+	return true;
 }
 
 void StartNewVeto(int team_goes_first = 0)
@@ -194,6 +240,8 @@ void StartNewVeto(int team_goes_first = 0)
 	
 	ClearVeto();
 	_is_veto_active = true;
+	
+	PrintToChatAll("%s Starting map picks/veto...");
 	
 	if (team_goes_first == 0) {
 		DoCoinFlip();
@@ -234,11 +282,10 @@ void DoCoinFlip(int coinflip_stage = 0)
 		SetRandomSeed(GetTime());
 		_first_veto_team = GetRandomInt(TEAM_JINRAI, TEAM_NSF);
 #endif
-		char team_name[64];
+		char team_name[MAX_CUSTOM_TEAM_NAME_LEN];
+		GetCompetitiveTeamName(_first_veto_team, team_name, sizeof(team_name));
 		
-		GetConVarString((_first_veto_team == TEAM_JINRAI) ? g_hCvar_JinraiName : g_hCvar_NsfName, team_name, sizeof(team_name));
-		
-		char text[20 + 64];
+		char text[20 + MAX_CUSTOM_TEAM_NAME_LEN];
 		Format(text, sizeof(text), "Team %s vetoes first.", team_name);
 		
 		panel.DrawText(text);
@@ -320,16 +367,10 @@ void DoVeto()
 	spec_panel.SetTitle(MAP_VETO_TITLE);
 	spec_panel.DrawText(" ");
 	
-	char jinrai_name[64];
-	char nsf_name[64];
-	g_hCvar_JinraiName.GetString(jinrai_name, sizeof(jinrai_name));
-	g_hCvar_NsfName.GetString(nsf_name, sizeof(nsf_name));
-	if (strlen(jinrai_name) == 0) {
-		strcopy(jinrai_name, sizeof(jinrai_name), "Jinrai");
-	}
-	if (strlen(nsf_name) == 0) {
-		strcopy(nsf_name, sizeof(nsf_name), "NSF");
-	}
+	char jinrai_name[MAX_CUSTOM_TEAM_NAME_LEN];
+	char nsf_name[MAX_CUSTOM_TEAM_NAME_LEN];
+	GetCompetitiveTeamName(TEAM_JINRAI, jinrai_name, sizeof(jinrai_name));
+	GetCompetitiveTeamName(TEAM_NSF, nsf_name, sizeof(nsf_name));
 	
 	switch (_veto_stage)
 	{
@@ -364,10 +405,10 @@ void DoVeto()
 	}
 	spec_panel.DrawText(" ");
 	
-	char buffer[128];
+	char buffer[PLATFORM_MAX_PATH + MAX_CUSTOM_TEAM_NAME_LEN + 12];
 	for (int i = 0; i < sizeof(_maps); ++i) {
 		if (i >= 9) {
-			SetFailState("Pagination of >9 maps pool is unsupported"); // TODO
+			SetFailState("Pagination of >9 maps pool is unsupported"); // TODO: support arbitrarily large map pool
 		}
 		
 		if (_is_vetoed_by[i] == 0 && _is_picked_by[i] == 0) {
@@ -422,15 +463,15 @@ public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int sele
 	else if (client > 0 && client <= MaxClients && IsClientInGame(client) && action == MenuAction_Select) {
 		int client_team = GetClientTeam(client);
 		if (client_team == GetPickingTeam()) {
-			char jinrai_name[64];
-			char nsf_name[64];
+			char jinrai_name[MAX_CUSTOM_TEAM_NAME_LEN];
+			char nsf_name[MAX_CUSTOM_TEAM_NAME_LEN];
 			g_hCvar_JinraiName.GetString(jinrai_name, sizeof(jinrai_name));
 			g_hCvar_NsfName.GetString(nsf_name, sizeof(nsf_name));
 			
 #if defined DEBUG
 			PrintToChatAll("MenuHandler_DoPick: Client %d selected %d", client, selection);
 #endif
-			char chosen_map[64];
+			char chosen_map[PLATFORM_MAX_PATH];
 			if (!menu.GetItem(selection, chosen_map, sizeof(chosen_map))) {
 				ThrowError("Failed to retrieve selection (%d)", selection);
 			}
@@ -634,4 +675,17 @@ public Action Timer_MapChangeInfoHelper(Handle timer)
 	PrintToChatAll("%s", msg);
 	PrintToConsoleAll("%s", msg);
 	return Plugin_Stop;
+}
+
+void GetCompetitiveTeamName(const int team, char[] out_name, const int max_len)
+{
+	if (team != TEAM_JINRAI && team != TEAM_NSF) {
+		ThrowError("Unexpected team index: %d", team);
+	}
+	
+	GetConVarString((team == TEAM_JINRAI) ? g_hCvar_JinraiName : g_hCvar_NsfName, out_name, max_len);
+	
+	if (strlen(out_name) == 0) {
+		strcopy(out_name, max_len, (team == TEAM_JINRAI) ? "Jinrai" : "NSF");
+	}
 }
