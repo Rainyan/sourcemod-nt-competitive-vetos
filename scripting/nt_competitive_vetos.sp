@@ -68,6 +68,12 @@ native bool Competitive_IsLive();
 
 public void OnPluginStart()
 {
+	// TODO: Currently using a basic Panel approach for some of the maps listing stuff.
+	// Refactoring the Panels to Menus would provide pagination support for larger map pools.
+#if NUM_MAPS >= 9
+#error Pagination of >=9 maps pool is currently unsupported. See code comment at this error for more info.
+#endif
+	
 	CreateConVar("sm_nt_tournament_map_picker_version", PLUGIN_VERSION, "NT Tournament Map Picker plugin version.", FCVAR_DONTRECORD);
 	
 	RegAdminCmd("sm_vetofirst", Cmd_StartVetoFirst, ADMFLAG_GENERIC, "Admin command to select which team should pick first (skips the coin flip).");
@@ -179,7 +185,10 @@ public Action Cmd_StartVeto(int client, int argc)
 	}
 	
 	if (!CheckIfReadyToStartVeto()) {
-		PrintToChatAll("%s Waiting for the other team to confirm with !veto.", g_sTag);
+		char other_team_name[MAX_CUSTOM_TEAM_NAME_LEN];
+		GetCompetitiveTeamName(GetOpposingTeam(team), other_team_name, sizeof(other_team_name));
+		
+		PrintToChatAll("%s Waiting for team %s to confirm with !veto.", g_sTag, other_team_name);
 	}
 	
 	return Plugin_Handled;
@@ -316,7 +325,7 @@ void StartNewVeto(int team_goes_first = 0)
 	}
 }
 
-void DoCoinFlip(int coinflip_stage = 0)
+void DoCoinFlip(const int coinflip_stage = 0)
 {	
 	if (ResetPicksIfShould()) {
 		return;
@@ -325,9 +334,12 @@ void DoCoinFlip(int coinflip_stage = 0)
 	Panel panel = new Panel();
 	panel.SetTitle(MAP_VETO_TITLE);
 	
+	// Characters to represent the "coin flip" spinning around, for some appropriate suspense.
 	char coinflip_anim[][] = { "-", "\\", "|", "/" };
+	// How many 180 coin flips for the full animation, ie. 3 = 1.5 full rotations.
+#define NUM_COINFLIP_ANIMATION_ROTATIONS 3
 	
-	if (coinflip_stage < sizeof(coinflip_anim) * 2) {
+	if (coinflip_stage < sizeof(coinflip_anim) * NUM_COINFLIP_ANIMATION_ROTATIONS) {
 		char text[19];
 		Format(text, sizeof(text), "Flipping coin... %s", coinflip_anim[coinflip_stage % sizeof(coinflip_anim)]);
 		panel.DrawText(" ");
@@ -352,8 +364,10 @@ void DoCoinFlip(int coinflip_stage = 0)
 		panel.DrawText(" ");
 		panel.DrawText(text);
 		
-#define COINFLIP_RESULTS_SHOW_DURATION 5
+		PrintToConsoleAll("%s %s", g_sTag, text);
+		LogToGame("%s %s", g_sTag, text);
 		
+#define COINFLIP_RESULTS_SHOW_DURATION 5
 		CreateTimer(COINFLIP_RESULTS_SHOW_DURATION * 1.0, Timer_StartVeto, _, TIMER_FLAG_NO_MAPCHANGE);
 	}
 	
@@ -470,10 +484,6 @@ void DoVeto()
 	
 	char buffer[PLATFORM_MAX_PATH + MAX_CUSTOM_TEAM_NAME_LEN + 12];
 	for (int i = 0; i < sizeof(_maps); ++i) {
-		if (i >= 9) {
-			SetFailState("Pagination of >9 maps pool is unsupported"); // TODO: support arbitrarily large map pool
-		}
-		
 		if (_is_vetoed_by[i] == 0 && _is_picked_by[i] == 0) {
 			picker_menu.AddItem(_maps[i], _maps[i], ITEMDRAW_DEFAULT);
 			spec_panel.DrawText(_maps[i]);
