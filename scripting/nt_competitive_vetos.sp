@@ -244,8 +244,12 @@ public Action Cmd_StartVetoFirst(int client, int argc)
 		ReplyToCommand(client, "%s Both teams need to have players in them to start the map picks.", g_sTag);
 		return Plugin_Handled;
 	}
-	else if (argc != 1) {
-		ReplyToCommand(client, "%s Usage: sm_vetofirst jinrai/nsf", g_sTag);
+	
+	char cmd_name[32];
+	GetCmdArg(0, cmd_name, sizeof(cmd_name));
+	
+	if (argc != 1) {
+		ReplyToCommand(client, "%s Usage: %s jinrai/nsf (don't use a team custom name)", g_sTag, cmd_name);
 		return Plugin_Handled;
 	}
 	else if (Competitive_IsLive()) {
@@ -264,7 +268,7 @@ public Action Cmd_StartVetoFirst(int client, int argc)
 	}
 	
 	if (team_that_goes_first != TEAM_JINRAI && team_that_goes_first != TEAM_NSF) {
-		ReplyToCommand(client, "%s Usage: sm_vetofirst jinrai/nsf", g_sTag);
+		ReplyToCommand(client, "%s Usage: %s jinrai/nsf", g_sTag, cmd_name);
 		return Plugin_Handled;
 	}
 	
@@ -546,6 +550,9 @@ public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int sele
 				ThrowError("Couldn't find map: \"%s\"", chosen_map);
 			}
 			
+			char client_name[MAX_NAME_LENGTH];
+			GetClientName(client, client_name, sizeof(client_name));
+			
 			if (_veto_stage == VETO_STAGE_FIRST_TEAM_BAN || _veto_stage == VETO_STAGE_SECOND_TEAM_BAN) {
 				_is_vetoed_by[map_index] = client_team;
 				
@@ -553,9 +560,9 @@ public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int sele
 				int num_other_clients = GetClientsExceptOne(client, other_clients, sizeof(other_clients));
 				EmitSound(other_clients, num_other_clients, g_sSound_Veto);
 				
-				PrintToChatAll("[VETO] %s vetoes: %s", (client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, chosen_map);
-				PrintToConsoleAll("[VETO] Team %s vetoes: %s", (client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, chosen_map);
-				LogToGame("[VETO] Team %s vetoes: %s", (client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, chosen_map);
+				PrintToChatAll("[VETO] Team %s (player %s) vetoes map: %s", (client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, client_name, chosen_map);
+				PrintToConsoleAll("[VETO] Team %s (player %s) vetoes map: %s", (client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, client_name, chosen_map);
+				LogToGame("[VETO] Team %s (player %s) vetoes map: %s", (client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, client_name, chosen_map);
 			}
 			else if (_veto_stage == VETO_STAGE_FIRST_TEAM_PICK || _veto_stage == VETO_STAGE_SECOND_TEAM_PICK) {
 				_is_picked_by[map_index] = client_team;
@@ -564,9 +571,9 @@ public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int sele
 				int num_other_clients = GetClientsExceptOne(client, other_clients, sizeof(other_clients));
 				EmitSound(other_clients, num_other_clients, g_sSound_Pick);
 				
-				PrintToChatAll("[PICK] %s picks: %s", (client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, chosen_map);
-				PrintToConsoleAll("[PICK] Team %s picks: %s", (client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, chosen_map);
-				LogToGame("[PICK] Team %s picks: %s", (client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, chosen_map);
+				PrintToChatAll("[PICK] Team %s (player %s) picks map: %s", (client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, client_name, chosen_map);
+				PrintToConsoleAll("[PICK] Team %s (player %s) picks map: %s", (client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, client_name, chosen_map);
+				LogToGame("[PICK] Team %s (player %s) picks map: %s", (client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, client_name, chosen_map);
 			}
 			else {
 				ThrowError("Unexpected veto stage: %d", _veto_stage);
