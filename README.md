@@ -1,7 +1,6 @@
 # sourcemod-nt-competitive-vetos
 SourceMod plugin for NT: A WIP veto system.
 
-# Using
 ## Compile requirements
 * SourceMod 1.7 or newer
 * SourceMod Neotokyo include
