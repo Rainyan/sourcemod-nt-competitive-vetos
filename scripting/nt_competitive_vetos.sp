@@ -16,6 +16,7 @@ static const String:g_sSound_Pick[] = "ui/buttonclick.wav";
 static const String:g_sSound_Results[] = "player/CPcaptured.wav";
 
 #define MAP_VETO_TITLE "MAP PICK"
+#define INVALID_MAP_ARR_INDEX -1
 
 // Debug flag for forcing all the vetos on the Jinrai team side.
 //#define DEBUG_ALL_VETOS_BY_JINRAI
@@ -138,7 +139,7 @@ void ClearVeto()
 	_veto_stage = VETO_STAGE_FIRST_TEAM_BAN;
 	
 	_first_veto_team = 0;
-	_pending_map_pick_nomination_for_vote = -1;
+	_pending_map_pick_nomination_for_vote = INVALID_MAP_ARR_INDEX;
 }
 
 public Action Cmd_StartVeto(int client, int argc)
@@ -416,7 +417,7 @@ void DoVeto()
 		return;
 	}
 	
-	if (_pending_map_pick_nomination_for_vote != -1) {
+	if (_pending_map_pick_nomination_for_vote != INVALID_MAP_ARR_INDEX) {
 		return;
 	}
 	
@@ -557,7 +558,7 @@ public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int sele
 				ThrowError("Failed to retrieve selection (%d)", selection);
 			}
 			int map_index = GetChosenMapIndex(chosen_map);
-			if (map_index == -1) {
+			if (map_index == INVALID_MAP_ARR_INDEX) {
 				ThrowError("Couldn't find map: \"%s\"", chosen_map);
 			}
 			
@@ -661,9 +662,9 @@ public int MenuHandler_ConfirmSoloMapPick(Menu menu, MenuAction action, int para
 	}
 	// Veto was interrupted for some reason. Return to the veto stage to try again.
 	else if (action == MenuAction_VoteCancel) {
-		// If this already equaled -1, the vote has already been cancelled by this plugin (admin reset, etc.)
-		if (_pending_map_pick_nomination_for_vote != -1) {
-			_pending_map_pick_nomination_for_vote = -1;
+		// If this already equaled INVALID_MAP_ARR_INDEX, the vote has already been cancelled by this plugin (admin reset, etc.)
+		if (_pending_map_pick_nomination_for_vote != INVALID_MAP_ARR_INDEX) {
+			_pending_map_pick_nomination_for_vote = INVALID_MAP_ARR_INDEX;
 			DoVeto();
 		}
 	}
@@ -673,13 +674,13 @@ public void VoteHandler_ConfirmSoloMapPick(Menu menu, int num_votes, int num_cli
 	const int[][] client_info, int num_items, const int[][] item_info)
 {
 	// Vote has been reset by this plugin (admin reset, etc.)
-	if (_pending_map_pick_nomination_for_vote == -1) {
+	if (_pending_map_pick_nomination_for_vote == INVALID_MAP_ARR_INDEX) {
 		return;
 	}
 	
 	// Nobody voted yes/no, don't do anything yet.
 	if (num_votes == 0) {
-		_pending_map_pick_nomination_for_vote = -1;
+		_pending_map_pick_nomination_for_vote = INVALID_MAP_ARR_INDEX;
 		DoVeto();
 		return;
 	}
@@ -754,7 +755,7 @@ public void VoteHandler_ConfirmSoloMapPick(Menu menu, int num_votes, int num_cli
 			"%%");
 	}
 	
-	_pending_map_pick_nomination_for_vote = -1;
+	_pending_map_pick_nomination_for_vote = INVALID_MAP_ARR_INDEX;
 	DoVeto();
 }
 
@@ -765,7 +766,7 @@ int GetChosenMapIndex(const char[] map)
 			return i;
 		}
 	}
-	return -1;
+	return INVALID_MAP_ARR_INDEX;
 }
 
 int GetOpposingTeam(int team)
