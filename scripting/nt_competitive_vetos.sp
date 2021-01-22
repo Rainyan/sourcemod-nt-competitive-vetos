@@ -72,10 +72,6 @@ public Plugin myinfo = {
 // Native from plugin: nt_competitive.
 native bool Competitive_IsLive();
 
-// TODO: move this to include
-//native bool CompetitiveVetos_IsVetoActive();
-//native int CompetitiveVetos_GetVetoMapPool(char[][] out_maps, int max_maps, int max_len);
-
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
 	// These names must be guaranteed globally unique.
@@ -1033,7 +1029,7 @@ public int Native_GetNameOfMapPoolMap(Handle plugin, int numParams)
 	else if (SetNativeString(2, _maps[map_index], max_out_len, false) != SP_ERROR_NONE) {
 		return 0;
 	}
-	return 1;
+	return strlen(_maps[map_index]) + 1;
 }
 
 VetoStage GetVetoStage()
