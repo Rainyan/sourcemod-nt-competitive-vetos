@@ -146,8 +146,8 @@ public Action Cmd_AdminResetVeto(int client, int argc)
 void ClearVeto()
 {
 	for (int i = 0; i < NUM_MAPS; ++i) {
-		_is_vetoed_by[i] = 0;
-		_is_picked_by[i] = 0;
+		_is_vetoed_by[i] = TEAM_NONE;
+		_is_picked_by[i] = TEAM_NONE;
 	}
 	
 	_wants_to_start_veto_jinrai = false;
@@ -459,7 +459,7 @@ void DoVeto()
 		}
 		SetRandomSeed(GetTime());
 		int third_map = maps[GetRandomInt(0, num_maps - 1)];
-		_is_picked_by[third_map] = TEAM_SPECTATOR;
+		SetMapVetoPick(TEAM_SPECTATOR, third_map);
 		
 		PrintToChatAll("[PICK] Third map is: %s", _maps[third_map]);
 		PrintToConsoleAll("[PICK] Third map is: %s", _maps[third_map]);
