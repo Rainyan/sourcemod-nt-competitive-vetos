@@ -3,7 +3,7 @@ SourceMod plugin for NT: A WIP veto system.
 
 ## Compile requirements
 * SourceMod 1.7 or newer
-* SourceMod Neotokyo include
+* [SourceMod Neotokyo include](https://github.com/softashell/sourcemod-nt-include)
 
 ## Accessing veto data from other plugins
 
