@@ -5,7 +5,7 @@
 
 #include <neotokyo>
 
-#define PLUGIN_VERSION "0.2"
+#define PLUGIN_VERSION "0.3"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -48,9 +48,10 @@ static bool _is_veto_active;
 static bool _wants_to_start_veto_jinrai;
 static bool _wants_to_start_veto_nsf;
 
-static VetoStage _veto_stage = VETO_STAGE_FIRST_TEAM_BAN;
+static VetoStage _veto_stage;
 
 static int _first_veto_team;
+static int _pending_map_pick_nomination_for_vote;
 
 ConVar g_hCvar_JinraiName = null;
 ConVar g_hCvar_NsfName = null;
@@ -63,7 +64,7 @@ public Plugin myinfo = {
 	url = "https://github.com/Rainyan/sourcemod-nt-competitive-vetos"
 };
 
-// Native from plugin: nt_competitive
+// Native from plugin: nt_competitive.
 native bool Competitive_IsLive();
 
 public void OnPluginStart()
@@ -104,17 +105,22 @@ public void OnMapStart()
 	else if (!PrecacheSound(g_sSound_Results)) {
 		SetFailState("Failed to precache sound: \"%s\"", g_sSound_Results);
 	}
-}
-
-public void OnMapEnd()
-{
+	
 	ClearVeto();
 }
 
 public Action Cmd_ResetVeto(int client, int argc)
 {
-	ClearVeto();
-	ReplyToCommand(client, "%s Veto has been reset by admin.", g_sTag);
+	if (_is_veto_active) {
+		PrintToChatAll("%s Veto has been reset by admin.", g_sTag);
+		PrintToConsoleAll("%s Veto has been reset by admin.", g_sTag);
+		LogToGame("%s Veto has been reset by admin.", g_sTag);
+	}
+	else {
+		ReplyToCommand(client, "%s No veto was active. Will reset veto internals, regardless.", g_sTag);
+	}
+	
+	ClearVeto();	
 	return Plugin_Handled;
 }
 
@@ -132,6 +138,7 @@ void ClearVeto()
 	_veto_stage = VETO_STAGE_FIRST_TEAM_BAN;
 	
 	_first_veto_team = 0;
+	_pending_map_pick_nomination_for_vote = -1;
 }
 
 public Action Cmd_StartVeto(int client, int argc)
@@ -287,7 +294,7 @@ public Action Cmd_StartVetoFirst(int client, int argc)
 	
 	PrintToChatAll("%s Veto has been manually started by admin (team %s goes first).",
 		g_sTag,
-		(team_that_goes_first == TEAM_JINRAI) ? "Jinrai" : "NSF"); // Not reusing the name buffer to ensure Nice Capitalization.
+		(team_that_goes_first == TEAM_JINRAI) ? "Jinrai" : "NSF"); // Not reusing team_name to ensure Nice Capitalization.
 	
 	return Plugin_Handled;
 }
@@ -377,7 +384,7 @@ void DoCoinFlip(const int coinflip_stage = 0)
 		}
 		panel.Send(client, MenuHandler_DoNothing, COINFLIP_RESULTS_SHOW_DURATION);
 	}
-	delete panel; // TODO/FIXME: is this double deletion??? See the callback.
+	delete panel;
 }
 
 public Action Timer_StartVeto(Handle timer)
@@ -401,11 +408,19 @@ public Action Timer_ReShowMenu(Handle timer)
 
 void DoVeto()
 {
+	if (_veto_stage == NUM_STAGES) {
+		ThrowError("Invalid veto stage (%d)", _veto_stage);
+	}
+	
 	if (ResetPicksIfShould()) {
 		return;
 	}
 	
-	if (_veto_stage >= VETO_STAGE_RANDOM_THIRD_MAP) {
+	if (_pending_map_pick_nomination_for_vote != -1) {
+		return;
+	}
+	
+	if (_veto_stage == VETO_STAGE_RANDOM_THIRD_MAP) {
 		int maps[3];
 		int num_maps = 0;
 		for (int i = 0; i < NUM_MAPS; ++i) {
@@ -444,7 +459,8 @@ void DoVeto()
 	// to make the menu cleaner.
 	// TODO 1: make sure this property works with NT.
 	// TODO 2: "No vote" option, and make it actually a vote.
-	// Have to look into working with other SM votes for edge cases, too: MenuAction_End --> MenuEnd_VotingDone, etc.
+	// Have to look into working with other SM votes for edge cases, too:
+	//   MenuAction_End --> MenuEnd_VotingDone, etc.
 	// See: https://sm.alliedmods.net/new-api/menus/__raw
 	picker_menu.ExitButton = false;
 	
@@ -457,37 +473,13 @@ void DoVeto()
 	GetCompetitiveTeamName(TEAM_JINRAI, jinrai_name, sizeof(jinrai_name));
 	GetCompetitiveTeamName(TEAM_NSF, nsf_name, sizeof(nsf_name));
 	
-	switch (_veto_stage)
-	{
-		case VETO_STAGE_FIRST_TEAM_BAN:
-		{
-			picker_menu.SetTitle("Your team's map VETO:");
-			
-			spec_panel.DrawText("Waiting for veto by:");
-			spec_panel.DrawText((picking_team == TEAM_JINRAI) ? jinrai_name : nsf_name);
-		}
-		case VETO_STAGE_SECOND_TEAM_BAN:
-		{
-			picker_menu.SetTitle("Your team's map VETO:");
-			
-			spec_panel.DrawText("Waiting for veto by:");
-			spec_panel.DrawText((picking_team == TEAM_JINRAI) ? jinrai_name : nsf_name);
-		}
-		case VETO_STAGE_SECOND_TEAM_PICK:
-		{
-			picker_menu.SetTitle("Your team's map PICK:");
-			
-			spec_panel.DrawText("Waiting for pick by:");
-			spec_panel.DrawText((picking_team == TEAM_JINRAI) ? jinrai_name : nsf_name);
-		}
-		case VETO_STAGE_FIRST_TEAM_PICK:
-		{
-			picker_menu.SetTitle("Your team's map PICK:");
-			
-			spec_panel.DrawText("Waiting for pick by:");
-			spec_panel.DrawText((picking_team == TEAM_JINRAI) ? jinrai_name : nsf_name);
-		}
-	}
+	bool is_ban_stage = (_veto_stage == VETO_STAGE_FIRST_TEAM_BAN ||
+		_veto_stage == VETO_STAGE_SECOND_TEAM_BAN);
+	
+	picker_menu.SetTitle("Your team's map %s:", is_ban_stage ? "VETO" : "PICK");
+	
+	spec_panel.DrawText(is_ban_stage ? "Waiting for veto by:" : "Waiting for pick by:");
+	spec_panel.DrawText((picking_team == TEAM_JINRAI) ? jinrai_name : nsf_name);
 	spec_panel.DrawText(" ");
 	
 	char buffer[PLATFORM_MAX_PATH + MAX_CUSTOM_TEAM_NAME_LEN + 12];
@@ -497,12 +489,14 @@ void DoVeto()
 			spec_panel.DrawText(_maps[i]);
 		}
 		else if (_is_vetoed_by[i] != 0) {
-			Format(buffer, sizeof(buffer), "%s (VETO of %s)", _maps[i], (_is_vetoed_by[i] == TEAM_JINRAI) ? jinrai_name : nsf_name);
+			Format(buffer, sizeof(buffer), "%s (VETO of %s)", _maps[i],
+				(_is_vetoed_by[i] == TEAM_JINRAI) ? jinrai_name : nsf_name);
 			picker_menu.AddItem("null", buffer, ITEMDRAW_DISABLED);
 			spec_panel.DrawText(buffer);
 		}
 		else if (_is_picked_by[i] != 0) {
-			Format(buffer, sizeof(buffer), "%s (PICK of %s)", _maps[i], (_is_picked_by[i] == TEAM_JINRAI) ? jinrai_name : nsf_name);
+			Format(buffer, sizeof(buffer), "%s (PICK of %s)", _maps[i],
+				(_is_picked_by[i] == TEAM_JINRAI) ? jinrai_name : nsf_name);
 			picker_menu.AddItem("null", buffer, ITEMDRAW_DISABLED);
 			spec_panel.DrawText(buffer);
 		}
@@ -520,7 +514,8 @@ void DoVeto()
 			spec_panel.Send(client, MenuHandler_DoNothing, 2);
 		}
 	}
-	delete spec_panel; // TODO/FIXME: is this double deletion??? See the callback.
+	
+	delete spec_panel;
 }
 
 public Action Timer_CoinFlip(Handle timer, int coinflip_stage)
@@ -532,17 +527,15 @@ public Action Timer_CoinFlip(Handle timer, int coinflip_stage)
 	return Plugin_Stop;
 }
 
+// Assuming that anyone using this callback will manage their Panel/Menu handle memory themselves.
 public int MenuHandler_DoNothing(Menu menu, MenuAction action, int param1, int param2)
 {
-	if (action == MenuAction_End) {
-		delete menu;
-	}
 }
 
-// Note that the callback params are guaranteed to actually represent clien & selection only in some MenuActions;
-// assuming (action == MenuAction_Select) in this context.
+// Note that the callback params are guaranteed to actually represent client & selection
+// only in some MenuActions; assuming (action == MenuAction_Select) in this context.
 public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int selection)
-{
+{	
 	if (action == MenuAction_End) {
 		delete menu;
 	}
@@ -568,6 +561,9 @@ public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int sele
 				ThrowError("Couldn't find map: \"%s\"", chosen_map);
 			}
 			
+			ConfirmSoloMapPick(client, client_team, map_index, chosen_map);
+			
+#if(0)
 			char client_name[MAX_NAME_LENGTH];
 			GetClientName(client, client_name, sizeof(client_name));
 			
@@ -578,9 +574,12 @@ public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int sele
 				int num_other_clients = GetClientsExceptOne(client, other_clients, sizeof(other_clients));
 				EmitSound(other_clients, num_other_clients, g_sSound_Veto);
 				
-				PrintToChatAll("[VETO] Team %s (player %s) vetoes map: %s", (client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, client_name, chosen_map);
-				PrintToConsoleAll("[VETO] Team %s (player %s) vetoes map: %s", (client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, client_name, chosen_map);
-				LogToGame("[VETO] Team %s (player %s) vetoes map: %s", (client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, client_name, chosen_map);
+				PrintToChatAll("[VETO] Team %s (player %s) vetoes map: %s",
+					(client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, client_name, chosen_map);
+				PrintToConsoleAll("[VETO] Team %s (player %s) vetoes map: %s",
+					(client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, client_name, chosen_map);
+				LogToGame("[VETO] Team %s (player %s) vetoes map: %s",
+					(client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, client_name, chosen_map);
 			}
 			else if (_veto_stage == VETO_STAGE_FIRST_TEAM_PICK || _veto_stage == VETO_STAGE_SECOND_TEAM_PICK) {
 				_is_picked_by[map_index] = client_team;
@@ -589,17 +588,166 @@ public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int sele
 				int num_other_clients = GetClientsExceptOne(client, other_clients, sizeof(other_clients));
 				EmitSound(other_clients, num_other_clients, g_sSound_Pick);
 				
-				PrintToChatAll("[PICK] Team %s (player %s) picks map: %s", (client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, client_name, chosen_map);
-				PrintToConsoleAll("[PICK] Team %s (player %s) picks map: %s", (client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, client_name, chosen_map);
-				LogToGame("[PICK] Team %s (player %s) picks map: %s", (client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, client_name, chosen_map);
+				PrintToChatAll("[PICK] Team %s (player %s) picks map: %s",
+					(client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, client_name, chosen_map);
+				PrintToConsoleAll("[PICK] Team %s (player %s) picks map: %s",
+					(client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, client_name, chosen_map);
+				LogToGame("[PICK] Team %s (player %s) picks map: %s",
+					(client_team == TEAM_JINRAI) ? jinrai_name : nsf_name, client_name, chosen_map);
 			}
 			else {
 				ThrowError("Unexpected veto stage: %d", _veto_stage);
 			}
 			++_veto_stage;
 			DoVeto();
+#endif
 		}
 	}
+}
+
+void ConfirmSoloMapPick(int client, int team, int map_pick, const char[] map_name)
+{
+	if (team != TEAM_JINRAI && team != TEAM_NSF) {
+		ThrowError("Unexpected team: %d", team);
+	}
+	else if (map_pick < 0 || map_pick >= sizeof(_maps)) {
+		ThrowError("Unexpected map pick index: %d", map_pick);
+	}
+	
+	_pending_map_pick_nomination_for_vote = map_pick;
+	
+	char client_name[MAX_NAME_LENGTH];
+	GetClientName(client, client_name, sizeof(client_name));
+	
+	Menu vote_menu = new Menu(MenuHandler_ConfirmSoloMapPick, MenuAction_VoteCancel);
+	vote_menu.ExitButton = false;
+	vote_menu.VoteResultCallback = VoteHandler_ConfirmSoloMapPick;
+	
+	bool is_ban_stage = (_veto_stage == VETO_STAGE_FIRST_TEAM_BAN ||
+		_veto_stage == VETO_STAGE_SECOND_TEAM_BAN);
+	
+	vote_menu.SetTitle("%s wants to use team %s for map: %s (need at least 50%c consensus)",
+		client_name,
+		is_ban_stage ? "VETO" : "PICK",
+		map_name,
+		'%'); // Note: the panel formats text differently, so need to use %c -> '%' for percentages here.
+	
+	vote_menu.AddItem("yes", "Vote yes", ITEMDRAW_DEFAULT);
+	vote_menu.AddItem("no", "Vote no", ITEMDRAW_DEFAULT);
+	
+	int voters[NEO_MAX_PLAYERS];
+	int num_voters;
+	for (int iter_client = 1; iter_client <= MaxClients; ++iter_client) {
+		if (!IsClientInGame(iter_client) || IsFakeClient(iter_client)) {
+			continue;
+		}
+		if (GetClientTeam(iter_client) != team) {
+			continue;
+		}
+		voters[num_voters++] = iter_client;
+	}
+	
+	if (IsVoteInProgress()) {
+		CancelVote();
+		PrintToChatAll("%s Cancelling existing vote because veto voting is currently active.", g_sTag);
+	}
+	vote_menu.DisplayVote(voters, num_voters, MENU_TIME_FOREVER);
+}
+
+public int MenuHandler_ConfirmSoloMapPick(Menu menu, MenuAction action, int param1, int param2)
+{
+	if (action == MenuAction_End) {
+		delete menu;
+	}
+	// Veto was interrupted for some reason. Return to the veto stage to try again.
+	else if (action == MenuAction_VoteCancel) {
+		_pending_map_pick_nomination_for_vote = -1;
+		DoVeto();
+	}
+}
+
+public void VoteHandler_ConfirmSoloMapPick(Menu menu, int num_votes, int num_clients,
+	const int[][] client_info, int num_items, const int[][] item_info)
+{
+	// Nobody voted yes/no, don't do anything yet.
+	if (num_votes == 0) {
+		_pending_map_pick_nomination_for_vote = -1;
+		DoVeto();
+		return;
+	}
+	
+	int num_yes_votes;
+	int num_no_votes;
+	int voting_team;
+	
+	for (int i = 0; i < num_clients; ++i) {
+		if (voting_team == 0) {
+			voting_team = GetClientTeam(client_info[i][0]);
+			if (voting_team != TEAM_JINRAI && voting_team != TEAM_NSF) {
+				ThrowError("Failed to get a valid voting team (%d)", voting_team);
+			}
+		}
+		
+		if (client_info[i][1] == 0) {
+			++num_yes_votes;
+		}
+		else {
+			++num_no_votes;
+		}
+	}
+	
+	if (num_yes_votes >= num_no_votes) {
+		char jinrai_name[MAX_CUSTOM_TEAM_NAME_LEN];
+		char nsf_name[MAX_CUSTOM_TEAM_NAME_LEN];
+		GetCompetitiveTeamName(TEAM_JINRAI, jinrai_name, sizeof(jinrai_name));
+		GetCompetitiveTeamName(TEAM_NSF, nsf_name, sizeof(nsf_name));
+		
+		if (_veto_stage == VETO_STAGE_FIRST_TEAM_BAN || _veto_stage == VETO_STAGE_SECOND_TEAM_BAN) {
+			_is_vetoed_by[_pending_map_pick_nomination_for_vote] = voting_team;
+			
+			EmitSoundToAll(g_sSound_Veto);
+			
+			PrintToAllExceptTeam(voting_team, "[VETO] Team %s vetoes map: %s",
+				(voting_team == TEAM_JINRAI) ? jinrai_name : nsf_name,
+				_maps[_pending_map_pick_nomination_for_vote]);
+			LogToGame("[VETO] Team %s vetoes map: %s",
+				(voting_team == TEAM_JINRAI) ? jinrai_name : nsf_name, _maps[_pending_map_pick_nomination_for_vote]);
+		}
+		else if (_veto_stage == VETO_STAGE_FIRST_TEAM_PICK || _veto_stage == VETO_STAGE_SECOND_TEAM_PICK) {
+			_is_picked_by[_pending_map_pick_nomination_for_vote] = voting_team;
+			
+			EmitSoundToAll(g_sSound_Pick);
+			
+			PrintToAllExceptTeam(voting_team, "[PICK] Team %s picks map: %s",
+				(voting_team == TEAM_JINRAI) ? jinrai_name : nsf_name,
+				_maps[_pending_map_pick_nomination_for_vote]);
+			LogToGame("[PICK] Team %s picks map: %s",
+				(voting_team == TEAM_JINRAI) ? jinrai_name : nsf_name, _maps[_pending_map_pick_nomination_for_vote]);
+		}
+		else {
+			ThrowError("Unexpected veto stage: %d", _veto_stage);
+		}
+		
+		PrintToTeam(voting_team, "%s Your team %sd map %s (%d%s yes votes of %d votes total).",
+			(_veto_stage == VETO_STAGE_FIRST_TEAM_BAN || _veto_stage == VETO_STAGE_SECOND_TEAM_BAN) ? "[VETO]" : "[PICK]",
+			(_veto_stage == VETO_STAGE_FIRST_TEAM_BAN || _veto_stage == VETO_STAGE_SECOND_TEAM_BAN) ? "vetoe" : "picke",
+			_maps[_pending_map_pick_nomination_for_vote],
+			(num_yes_votes == 0) ? 100 : ((1 - (num_no_votes / num_yes_votes)) * 100),
+			"%%",
+			num_votes);
+		
+		++_veto_stage;
+	}
+	else {
+		PrintToTeam(voting_team, "%s Need at least 50%s of yes votes (got %d%s).",
+			g_sTag,
+			"%%",
+			(num_no_votes == 0) ? 0 : (num_yes_votes / num_no_votes),
+			"%%");
+	}
+	
+	_pending_map_pick_nomination_for_vote = -1;
+	DoVeto();
 }
 
 int GetChosenMapIndex(const char[] map)
@@ -674,7 +822,7 @@ int GetNumPlayersInTeam(int team)
 	return num_players;
 }
 
-int GetClientsExceptOne(int excluded_client, int[] out_clients, int max_clients)
+stock int GetClientsExceptOne(int excluded_client, int[] out_clients, int max_clients)
 {
 	int num_clients = 0;
 	for (int client = 1; client <= MaxClients; ++client) {
@@ -690,6 +838,50 @@ int GetClientsExceptOne(int excluded_client, int[] out_clients, int max_clients)
 		out_clients[num_clients++] = client;
 	}
 	return num_clients;
+}
+
+void PrintToTeam(int team, const String:message[], any ...)
+{
+	if (team < TEAM_NONE || team > TEAM_NSF) {
+		ThrowError("Invalid team: %d", team);
+	}
+	
+	decl String:formatMsg[512];
+	VFormat(formatMsg, sizeof(formatMsg), message, 3);
+	
+	for (int client = 1; client <= MaxClients; client++)
+	{
+		if (!IsClientInGame(client) || IsFakeClient(client)) {
+			continue;
+		}
+		if (GetClientTeam(client) != team) {
+			continue;
+		}
+		PrintToChat(client, formatMsg);
+		PrintToConsole(client, formatMsg);
+	}
+}
+
+void PrintToAllExceptTeam(int team, const String:message[], any ...)
+{
+	if (team < TEAM_NONE || team > TEAM_NSF) {
+		ThrowError("Invalid team: %d", team);
+	}
+	
+	decl String:formatMsg[512];
+	VFormat(formatMsg, sizeof(formatMsg), message, 3);
+	
+	for (int client = 1; client <= MaxClients; client++)
+	{
+		if (!IsClientInGame(client) || IsFakeClient(client)) {
+			continue;
+		}
+		if (GetClientTeam(client) == team) {
+			continue;
+		}
+		PrintToChat(client, formatMsg);
+		PrintToConsole(client, formatMsg);
+	}
 }
 
 void AnnounceMaps()
@@ -753,7 +945,7 @@ void AnnounceMaps()
 		}
 		panel.Send(client, MenuHandler_DoNothing, MENU_TIME_FOREVER);
 	}
-	delete panel; // TODO/FIXME: is this double deletion??? See the callback.
+	delete panel;
 	
 	EmitSoundToAll(g_sSound_Results);
 	
@@ -762,7 +954,9 @@ void AnnounceMaps()
 
 public Action Timer_MapChangeInfoHelper(Handle timer)
 {
-	char[] msg = "[SM] If no admins are present, you can nominate & rtv in chat to change the maps according to the map picks.";
+	char[] msg = "[SM] If no admins are present, you can nominate & rtv in chat to change \
+the maps according to the map picks.";
+	
 	PrintToChatAll("%s", msg);
 	PrintToConsoleAll("%s", msg);
 	return Plugin_Stop;
