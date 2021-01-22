@@ -5,6 +5,8 @@
 
 #include <neotokyo>
 
+#include <nt_competitive_vetos_enum>
+
 #define PLUGIN_VERSION "0.3"
 
 #define NEO_MAX_PLAYERS 32
@@ -23,18 +25,6 @@ static const String:g_sSound_Results[] = "player/CPcaptured.wav";
 
 // Debug flag for forcing all the vetos on the Jinrai team side.
 //#define DEBUG_ALL_VETOS_BY_JINRAI
-
-enum VetoStage {
-	VETO_STAGE_INACTIVE = 0,
-	VETO_STAGE_COIN_FLIP,
-	VETO_STAGE_FIRST_TEAM_BAN,
-	VETO_STAGE_SECOND_TEAM_BAN,
-	VETO_STAGE_SECOND_TEAM_PICK,
-	VETO_STAGE_FIRST_TEAM_PICK,
-	VETO_STAGE_RANDOM_THIRD_MAP,
-	
-	NUM_STAGES
-};
 
 // TODO: Move map pool out of code into a config file, and allow any sized map pool.
 #define NUM_MAPS 7
@@ -729,9 +719,6 @@ public void VoteHandler_ConfirmSoloMapPick(Menu menu, int num_votes, int num_cli
 		if (GetVetoStage() == VETO_STAGE_FIRST_TEAM_BAN || GetVetoStage() == VETO_STAGE_SECOND_TEAM_BAN) {
 			
 			SetMapVetoPick(voting_team, _pending_map_pick_nomination_for_vote);
-			
-			_is_vetoed_by[_pending_map_pick_nomination_for_vote] = voting_team;
-			
 			EmitSoundToAll(g_sSound_Veto);
 			
 			PrintToAllExceptTeam(voting_team, "[VETO] Team %s vetoes map: %s",
@@ -741,8 +728,7 @@ public void VoteHandler_ConfirmSoloMapPick(Menu menu, int num_votes, int num_cli
 				(voting_team == TEAM_JINRAI) ? jinrai_name : nsf_name, _maps[_pending_map_pick_nomination_for_vote]);
 		}
 		else if (GetVetoStage() == VETO_STAGE_FIRST_TEAM_PICK || GetVetoStage() == VETO_STAGE_SECOND_TEAM_PICK) {
-			_is_picked_by[_pending_map_pick_nomination_for_vote] = voting_team;
-			
+			SetMapVetoPick(voting_team, _pending_map_pick_nomination_for_vote);
 			EmitSoundToAll(g_sSound_Pick);
 			
 			PrintToAllExceptTeam(voting_team, "[PICK] Team %s picks map: %s",
@@ -763,7 +749,7 @@ public void VoteHandler_ConfirmSoloMapPick(Menu menu, int num_votes, int num_cli
 			"%%",
 			num_votes);
 		
-		++_veto_stage;
+		SetVetoStage(view_as<VetoStage>(view_as<int>(GetVetoStage()) + 1));
 	}
 	else {
 		PrintToTeam(voting_team, "%s Need at least 50%s of yes votes (got %d%s).",
@@ -1039,11 +1025,13 @@ VetoStage GetVetoStage()
 
 void SetVetoStage(VetoStage stage)
 {
-	_veto_stage = stage;
-	
-	Call_StartForward(g_hForwardVetoStageUpdate);
-	Call_PushCell(stage);
-	Call_Finish();
+	if (_veto_stage != stage) {
+		_veto_stage = stage;
+		
+		Call_StartForward(g_hForwardVetoStageUpdate);
+		Call_PushCell(stage);
+		Call_Finish();
+	}
 }
 
 void SetMapVetoPick(int team, int pick)
@@ -1051,14 +1039,19 @@ void SetMapVetoPick(int team, int pick)
 	if (pick < 0 || pick >= sizeof(_maps)) {
 		ThrowError("Invalid map pick index: %d", pick);
 	}
-	else if (team != 0 && team != TEAM_JINRAI && team != TEAM_NSF) {
+	else if (team != TEAM_SPECTATOR && team != TEAM_JINRAI && team != TEAM_NSF) {
 		ThrowError("Unexpected team: %d", team);
 	}
 	
-	_is_vetoed_by[pick] = team;
+	if (GetVetoStage() == VETO_STAGE_FIRST_TEAM_BAN || GetVetoStage() == VETO_STAGE_SECOND_TEAM_BAN) {
+		_is_vetoed_by[pick] = team;
+	}
+	else {
+		_is_picked_by[pick] = team;
+	}
 	
 	Call_StartForward(g_hForwardVetoPick);
-	Call_PushCell(_veto_stage);
+	Call_PushCell(GetVetoStage());
 	Call_PushCell(team);
 	Call_PushCell(pick);
 	Call_Finish();
