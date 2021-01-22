@@ -52,7 +52,7 @@ ConVar g_hCvar_JinraiName = null;
 ConVar g_hCvar_NsfName = null;
 
 public Plugin myinfo = {
-	name = "NT Tournament Map Picker",
+	name = "NT Competitive Vetos",
 	description = "Helper plugin for doing tournament map picks/vetos.",
 	author = "Rain",
 	version = PLUGIN_VERSION,
@@ -80,13 +80,15 @@ public void OnPluginStart()
 #error Pagination of >=9 maps pool is currently unsupported. See code comment at this error for more info.
 #endif
 	
-	CreateConVar("sm_nt_tournament_map_picker_version", PLUGIN_VERSION, "NT Tournament Map Picker plugin version.", FCVAR_DONTRECORD);
+	CreateConVar("sm_nt_competitive_vetos_version", PLUGIN_VERSION, "NT Competitive Vetos plugin version.", FCVAR_DONTRECORD);
 	
 	RegAdminCmd("sm_forceveto", Cmd_AdminForceVeto, ADMFLAG_GENERIC, "Admin command to select which team should pick first (skips the coin flip).");
-	RegAdminCmd("sm_resetveto", Cmd_AdminResetVeto, ADMFLAG_GENERIC, "Admin command to reset a veto in progress.");
 	
-	RegConsoleCmd("sm_veto", Cmd_StartVeto, "Start the map picks/vetos.");
-	RegConsoleCmd("sm_unveto", Cmd_CancelVeto, "Start the map picks/vetos.");
+	RegAdminCmd("sm_resetveto", Cmd_AdminResetVeto, ADMFLAG_GENERIC, "Admin command to reset a veto in progress.");
+	RegAdminCmd("sm_cancelveto", Cmd_AdminResetVeto, ADMFLAG_GENERIC, "Alias for sm_resetveto.");
+	
+	RegConsoleCmd("sm_veto", Cmd_StartVeto, "Ready the team for map picks/vetos.");
+	RegConsoleCmd("sm_unveto", Cmd_CancelVeto, "Unready the team for map picks/vetos.");
 	
 	g_hForwardVetoStageUpdate = CreateGlobalForward("OnMapVetoStageUpdate", ET_Event, Param_Cell);
 	g_hForwardVetoPick = CreateGlobalForward("OnMapVetoPick", ET_Event, Param_Cell, Param_Cell, Param_Cell);
