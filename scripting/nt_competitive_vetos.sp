@@ -661,14 +661,22 @@ public int MenuHandler_ConfirmSoloMapPick(Menu menu, MenuAction action, int para
 	}
 	// Veto was interrupted for some reason. Return to the veto stage to try again.
 	else if (action == MenuAction_VoteCancel) {
-		_pending_map_pick_nomination_for_vote = -1;
-		DoVeto();
+		// If this already equaled -1, the vote has already been cancelled by this plugin (admin reset, etc.)
+		if (_pending_map_pick_nomination_for_vote != -1) {
+			_pending_map_pick_nomination_for_vote = -1;
+			DoVeto();
+		}
 	}
 }
 
 public void VoteHandler_ConfirmSoloMapPick(Menu menu, int num_votes, int num_clients,
 	const int[][] client_info, int num_items, const int[][] item_info)
 {
+	// Vote has been reset by this plugin (admin reset, etc.)
+	if (_pending_map_pick_nomination_for_vote == -1) {
+		return;
+	}
+	
 	// Nobody voted yes/no, don't do anything yet.
 	if (num_votes == 0) {
 		_pending_map_pick_nomination_for_vote = -1;
