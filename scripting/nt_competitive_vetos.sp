@@ -7,7 +7,7 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "0.3"
+#define PLUGIN_VERSION "0.4"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
