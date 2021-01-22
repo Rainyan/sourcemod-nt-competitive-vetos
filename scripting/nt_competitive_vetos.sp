@@ -1011,7 +1011,7 @@ public int Native_GetNameOfMapPoolMap(Handle plugin, int numParams)
 	int max_out_len = GetNativeCell(3);
 	
 	if (map_index < 0 || map_index >= NUM_MAPS) {
-		ThrowNativeError(1, "Unexpected map index %d (expected index in range: 0 - %d)", NUM_MAPS);
+		ThrowNativeError(1, "Unexpected map index %d (expected index in range: 0 - %d)", map_index, NUM_MAPS);
 		return 0;
 	}
 	else if (SetNativeString(2, _maps[map_index], max_out_len, false) != SP_ERROR_NONE) {
