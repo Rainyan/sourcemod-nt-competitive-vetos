@@ -7,7 +7,7 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "0.4.3"
+#define PLUGIN_VERSION "0.4.4"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -59,6 +59,12 @@ static int _pending_map_pick_nomination_for_vote;
 ConVar g_hCvar_JinraiName = null;
 ConVar g_hCvar_NsfName = null;
 
+// Bit of a hack, but since this killer-info-display panel is the most likely
+// element to cancel the veto view, temporarily disable it during the veto,
+// if it exists on server.
+ConVar g_hCvar_KidPrintToPanel = null;
+static bool _kid_print_to_panel_default;
+
 public Plugin myinfo = {
     name = "NT Competitive Vetos",
     description = "Helper plugin for doing tournament map picks/vetos.",
@@ -107,6 +113,12 @@ public void OnAllPluginsLoaded()
     if (g_hCvar_JinraiName == null || g_hCvar_NsfName == null)
     {
         SetFailState("Failed to look up nt_competitive team name cvars. Is nt_competitive plugin enabled?");
+    }
+
+    g_hCvar_KidPrintToPanel = FindConVar("kid_printtopanel");
+    if (g_hCvar_KidPrintToPanel != null)
+    {
+        _kid_print_to_panel_default = g_hCvar_KidPrintToPanel.BoolValue;
     }
 }
 
@@ -170,6 +182,11 @@ void ClearVeto()
 
     _first_veto_team = 0;
     _pending_map_pick_nomination_for_vote = INVALID_MAP_ARR_INDEX;
+
+    if (g_hCvar_KidPrintToPanel != null)
+    {
+        g_hCvar_KidPrintToPanel.BoolValue = _kid_print_to_panel_default;
+    }
 }
 
 public Action Cmd_StartVeto(int client, int argc)
@@ -482,6 +499,12 @@ void DoVeto()
     else if (GetVetoStage() == VETO_STAGE_COIN_FLIP)
     {
         SetVetoStage(VETO_STAGE_FIRST_TEAM_BAN);
+
+        if (g_hCvar_KidPrintToPanel != null)
+        {
+            _kid_print_to_panel_default = g_hCvar_KidPrintToPanel.BoolValue;
+            g_hCvar_KidPrintToPanel.BoolValue = false;
+        }
     }
 
     if (ResetPicksIfShould())
@@ -518,6 +541,7 @@ void DoVeto()
 
         AnnounceMaps();
         ClearVeto();
+
         return;
     }
 
@@ -648,7 +672,7 @@ public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int sele
             char chosen_map[PLATFORM_MAX_PATH];
             if (!menu.GetItem(selection, chosen_map, sizeof(chosen_map)))
             {
-                ThrowError("Failed to retrieve selection (%d)", selection);
+                return 0;
             }
             else if (StrEqual(chosen_map, ITEM_DISABLED_STR))
             {
