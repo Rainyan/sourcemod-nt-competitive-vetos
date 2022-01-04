@@ -51,7 +51,7 @@ native int CompetitiveVetos_GetNameOfMapPoolMap(int map_index, char[] out_buffer
 *      - new_veto_stage:          VetoStage enum that was entered when this forward fired.
 */
 
-/* public void OnMapVetoPick(int current_veto_stage, int vetoing_team, int vetoed_map_index);
+/* public void OnMapVetoPick(int current_veto_stage, int vetoing_team, const char[] map_name);
 *    Called whenever a team decides on one of their pick/ban.
 *      - current_veto_stage:      VetoStage enum for determining what kind of pick this was.
 *
@@ -59,7 +59,6 @@ native int CompetitiveVetos_GetNameOfMapPoolMap(int map_index, char[] out_buffer
 *                                 TEAM_JINRAI or TEAM_NSF (or TEAM_SPECTATOR for the random pick),
 *                                 as teams are defined in neotokyo.inc.
 *
-*      - vetoed_map_index:        Index of the map being picked or vetoed. Same indices
-*                                 as returned by the natives CompetitiveVetos_GetVetoMapPoolSize()
-*                                 and CompetitiveVetos_GetNameOfMapPoolMap(...).
+*      - map_name:                Name of the map being picked or vetoed.
+*                                 Maximum length of the const char[] is PLATFORM_MAX_PATH.
 */

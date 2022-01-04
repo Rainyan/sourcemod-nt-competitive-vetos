@@ -9,10 +9,14 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "0.4.5"
+#define PLUGIN_VERSION "0.5.0"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
+// Used for catching bugs where team managed to vote an unavailable option.
+#define ITEM_DISABLED_STR "null"
+// Versioning used for the veto.cfg format changes.
+#define VETOS_CFG_VERSION 1
 
 Handle g_hForwardVetoStageUpdate = INVALID_HANDLE;
 Handle g_hForwardVetoPick = INVALID_HANDLE;
@@ -22,11 +26,6 @@ static char g_sSound_Veto[] = "ui/buttonrollover.wav";
 static char g_sSound_Pick[] = "ui/buttonclick.wav";
 static char g_sSound_Results[] = "player/CPcaptured.wav";
 
-#define ITEM_DISABLED_STR "null"
-
-#define MAP_VETO_TITLE "MAP PICK"
-#define INVALID_MAP_ARR_INDEX -1
-
 // Debug flag for doing funky testing stuff. Don't enable for regular use.
 //#define DEBUG
 
@@ -35,22 +34,11 @@ static char g_sSound_Results[] = "player/CPcaptured.wav";
 // as you would be voting from Jinrai in their stead.
 //#define DEBUG_ALL_VETOS_BY_JINRAI
 
-// TODO: Move map pool out of code into a config file, and allow any sized map pool.
-#define NUM_MAPS 9
-static char _maps[NUM_MAPS][] = {
-    "Ballistremade",
-    "nt_envoy_ctg_b1",
-    "nt_ghost_ctg",
-    "Rise",
-    "Shipment",
-    "nt_snowfall_ctg_b6",
-    "nt_threadplate_ctg",
-    "nt_ikasen_ctg_b7",
-    "Pagoda"
-};
-
-static int _is_vetoed_by[NUM_MAPS];
-static int _is_picked_by[NUM_MAPS];
+char _jinrai_veto[PLATFORM_MAX_PATH];
+char _nsf_veto[PLATFORM_MAX_PATH];
+char _jinrai_pick[PLATFORM_MAX_PATH];
+char _nsf_pick[PLATFORM_MAX_PATH];
+char _random_pick[PLATFORM_MAX_PATH];
 
 static bool _wants_to_start_veto_jinrai;
 static bool _wants_to_start_veto_nsf;
@@ -58,7 +46,7 @@ static bool _wants_to_start_veto_nsf;
 static VetoStage _veto_stage;
 
 static int _first_veto_team;
-static int _pending_map_pick_nomination_for_vote;
+static char _pending_map_pick_nomination_for_vote[PLATFORM_MAX_PATH];
 
 ConVar g_hCvar_JinraiName = null;
 ConVar g_hCvar_NsfName = null;
@@ -106,8 +94,8 @@ public void OnPluginStart()
     RegConsoleCmd("sm_veto", Cmd_StartVeto, "Ready the team for map picks/vetos.");
     RegConsoleCmd("sm_unveto", Cmd_CancelVeto, "Unready the team for map picks/vetos.");
 
-    g_hForwardVetoStageUpdate = CreateGlobalForward("OnMapVetoStageUpdate", ET_Event, Param_Cell);
-    g_hForwardVetoPick = CreateGlobalForward("OnMapVetoPick", ET_Event, Param_Cell, Param_Cell, Param_Cell);
+    g_hForwardVetoStageUpdate = CreateGlobalForward("OnMapVetoStageUpdate", ET_Ignore, Param_Cell);
+    g_hForwardVetoPick = CreateGlobalForward("OnMapVetoPick", ET_Ignore, Param_Cell, Param_Cell, Param_String);
 }
 
 public void OnAllPluginsLoaded()
@@ -173,11 +161,12 @@ public Action Cmd_AdminDebug_ReDisplayVeto(int client, int argc)
 
 void ClearVeto()
 {
-    for (int i = 0; i < NUM_MAPS; ++i)
-    {
-        _is_vetoed_by[i] = TEAM_NONE;
-        _is_picked_by[i] = TEAM_NONE;
-    }
+    strcopy(_jinrai_veto, sizeof(_jinrai_veto), "");
+    strcopy(_nsf_veto, sizeof(_nsf_veto), "");
+    strcopy(_jinrai_pick, sizeof(_jinrai_pick), "");
+    strcopy(_nsf_pick, sizeof(_nsf_pick), "");
+    strcopy(_random_pick, sizeof(_random_pick), "");
+    strcopy(_pending_map_pick_nomination_for_vote, sizeof(_pending_map_pick_nomination_for_vote), "");
 
     _wants_to_start_veto_jinrai = false;
     _wants_to_start_veto_nsf = false;
@@ -185,7 +174,6 @@ void ClearVeto()
     SetVetoStage(VETO_STAGE_INACTIVE);
 
     _first_veto_team = 0;
-    _pending_map_pick_nomination_for_vote = INVALID_MAP_ARR_INDEX;
 
     if (g_hCvar_KidPrintToPanel != null)
     {
@@ -427,7 +415,7 @@ void DoCoinFlip(const int coinflip_stage = 0)
     SetVetoStage(VETO_STAGE_COIN_FLIP);
 
     Panel panel = new Panel();
-    panel.SetTitle(MAP_VETO_TITLE);
+    panel.SetTitle(g_sTag);
 
     // Characters to represent the "coin flip" spinning around, for some appropriate suspense.
     char coinflip_anim[][] = { "-", "\\", "|", "/" };
@@ -516,36 +504,9 @@ void DoVeto()
         return;
     }
 
-    if (_pending_map_pick_nomination_for_vote != INVALID_MAP_ARR_INDEX)
+    if (strlen(_pending_map_pick_nomination_for_vote) != 0)
     {
-        return;
-    }
-
-    if (GetVetoStage() == VETO_STAGE_RANDOM_THIRD_MAP)
-    {
-        int maps[NUM_MAPS - (2 * 2)];
-        int num_maps = 0;
-        for (int i = 0; i < NUM_MAPS; ++i) {
-            if (_is_picked_by[i] == 0 && _is_vetoed_by[i] == 0)
-            {
-                maps[num_maps++] = i;
-            }
-        }
-        if (num_maps == 0)
-        {
-            ThrowError("Failed to pick random map");
-        }
-        SetRandomSeed(GetTime());
-        int third_map = maps[GetRandomInt(0, num_maps - 1)];
-        SetMapVetoPick(TEAM_SPECTATOR, third_map);
-
-        PrintToChatAll("[PICK] Third map is: %s", _maps[third_map]);
-        PrintToConsoleAll("[PICK] Third map is: %s", _maps[third_map]);
-        LogToGame("[PICK] Third map is: %s", _maps[third_map]);
-
-        AnnounceMaps();
-        ClearVeto();
-
+        LogError("_pending_map_pick_nomination_for_vote not empty");
         return;
     }
 
@@ -554,16 +515,79 @@ void DoVeto()
     picking_team = TEAM_JINRAI;
 #endif
 
+    DataPack dp_maps = new DataPack();
+    bool all_maps_exist_on_server;
+    int veto_pool_size = GetMaps(dp_maps, all_maps_exist_on_server);
+    if (veto_pool_size == -1)
+    {
+        ThrowError("Failed to get maps");
+    }
+    else if (veto_pool_size < 5)
+    {
+        ThrowError("Need at least 5 maps on veto pool (got %d)", veto_pool_size);
+    }
+    else if (!all_maps_exist_on_server &&
+        GetVetoStage() == VETO_STAGE_FIRST_TEAM_BAN)
+    {
+        PrintToChatAll("%s Warning: the veto map pool contains map(s) that \
+don't exist on this server!", g_sTag);
+    }
+
+    if (GetVetoStage() == VETO_STAGE_RANDOM_THIRD_MAP)
+    {
+        dp_maps.Reset();
+        DataPack dp_unchosen_maps = new DataPack();
+        int num_remaining_maps;
+        char map_name_buffer[PLATFORM_MAX_PATH];
+        for (int i = 0; i < veto_pool_size; ++i)
+        {
+            dp_maps.ReadString(map_name_buffer, sizeof(map_name_buffer));
+            if (StrEqual(map_name_buffer, _jinrai_veto) ||
+                StrEqual(map_name_buffer, _nsf_veto) ||
+                StrEqual(map_name_buffer, _jinrai_pick) ||
+                StrEqual(map_name_buffer, _nsf_pick))
+            {
+                continue;
+            }
+            dp_unchosen_maps.WriteString(map_name_buffer);
+            ++num_remaining_maps;
+        }
+        if (num_remaining_maps == 0)
+        {
+            delete dp_maps;
+            delete dp_unchosen_maps;
+            ThrowError("No maps left to choose from");
+        }
+
+        SetRandomSeed(GetTime());
+        int third_map_index = GetRandomInt(0, num_remaining_maps - 1);
+
+        dp_unchosen_maps.Reset();
+        for (int i = 0; i < third_map_index; ++i)
+        {
+            dp_unchosen_maps.ReadString(map_name_buffer, sizeof(map_name_buffer));
+        }
+        dp_unchosen_maps.ReadString(map_name_buffer, sizeof(map_name_buffer));
+        delete dp_unchosen_maps;
+        delete dp_maps;
+
+        SetMapVetoPick(TEAM_SPECTATOR, map_name_buffer);
+        AnnounceMaps();
+
+        ClearVeto();
+        return;
+    }
+
     if (picking_team != TEAM_JINRAI && picking_team != TEAM_NSF)
     {
-        ThrowError("Invalid team: %d", picking_team);
+        ThrowError("Invalid picking team: %d", picking_team);
     }
 
     Menu picker_menu = new Menu(MenuHandler_DoPick, (MenuAction_Select | MenuAction_End));
     picker_menu.ExitButton = false;
 
     Panel spec_panel = new Panel();
-    spec_panel.SetTitle(MAP_VETO_TITLE);
+    spec_panel.SetTitle(g_sTag);
     spec_panel.DrawText(" ");
 
     char jinrai_name[MAX_CUSTOM_TEAM_NAME_LEN];
@@ -575,39 +599,50 @@ void DoVeto()
         GetVetoStage() == VETO_STAGE_SECOND_TEAM_BAN);
 
     picker_menu.SetTitle("Your team's map %s:", is_ban_stage ? "VETO" : "PICK");
-    picker_menu.Pagination = Min(NUM_MAPS, 7);
+    picker_menu.Pagination = Min(veto_pool_size, 7);
 
     spec_panel.DrawText(is_ban_stage ? "Waiting for veto by:" : "Waiting for pick by:");
     spec_panel.DrawText((picking_team == TEAM_JINRAI) ? jinrai_name : nsf_name);
     spec_panel.DrawText(" ");
 
-    char buffer[PLATFORM_MAX_PATH + MAX_CUSTOM_TEAM_NAME_LEN + 12];
-    for (int i = 0; i < sizeof(_maps); ++i)
+    char map_name_buffer[PLATFORM_MAX_PATH];
+    char buffer[PLATFORM_MAX_PATH + MAX_CUSTOM_TEAM_NAME_LEN + 11 + 1];
+    dp_maps.Reset();
+    for (int i = 0; i < veto_pool_size; ++i)
     {
-        if (_is_vetoed_by[i] == 0 && _is_picked_by[i] == 0)
+        dp_maps.ReadString(map_name_buffer, sizeof(map_name_buffer));
+
+        if (StrEqual(map_name_buffer, _jinrai_veto))
         {
-            picker_menu.AddItem(_maps[i], _maps[i], ITEMDRAW_DEFAULT);
-            spec_panel.DrawText(_maps[i]);
-        }
-        else if (_is_vetoed_by[i] != 0)
-        {
-            Format(buffer, sizeof(buffer), "%s (VETO of %s)", _maps[i],
-                (_is_vetoed_by[i] == TEAM_JINRAI) ? jinrai_name : nsf_name);
+            Format(buffer, sizeof(buffer), "%s (VETO of %s)", map_name_buffer, jinrai_name);
             picker_menu.AddItem(ITEM_DISABLED_STR, buffer, ITEMDRAW_DISABLED);
             spec_panel.DrawText(buffer);
         }
-        else if (_is_picked_by[i] != 0)
+        else if (StrEqual(map_name_buffer, _nsf_veto))
         {
-            Format(buffer, sizeof(buffer), "%s (PICK of %s)", _maps[i],
-                (_is_picked_by[i] == TEAM_JINRAI) ? jinrai_name : nsf_name);
+            Format(buffer, sizeof(buffer), "%s (VETO of %s)", map_name_buffer, nsf_name);
+            picker_menu.AddItem(ITEM_DISABLED_STR, buffer, ITEMDRAW_DISABLED);
+            spec_panel.DrawText(buffer);
+        }
+        else if (StrEqual(map_name_buffer, _jinrai_pick))
+        {
+            Format(buffer, sizeof(buffer), "%s (PICK of %s)", map_name_buffer, jinrai_name);
+            picker_menu.AddItem(ITEM_DISABLED_STR, buffer, ITEMDRAW_DISABLED);
+            spec_panel.DrawText(buffer);
+        }
+        else if (StrEqual(map_name_buffer, _nsf_pick))
+        {
+            Format(buffer, sizeof(buffer), "%s (PICK of %s)", map_name_buffer, nsf_name);
             picker_menu.AddItem(ITEM_DISABLED_STR, buffer, ITEMDRAW_DISABLED);
             spec_panel.DrawText(buffer);
         }
         else
         {
-            ThrowError("Fell through logic");
+            picker_menu.AddItem(map_name_buffer, map_name_buffer, ITEMDRAW_DEFAULT);
+            spec_panel.DrawText(map_name_buffer);
         }
     }
+    delete dp_maps;
 
     int num_picker_menu_users;
     for (int client = 1; client <= MaxClients; ++client)
@@ -676,40 +711,34 @@ public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int sele
             char chosen_map[PLATFORM_MAX_PATH];
             if (!menu.GetItem(selection, chosen_map, sizeof(chosen_map)))
             {
+                ThrowError("GetItem failed");
                 return 0;
             }
             else if (StrEqual(chosen_map, ITEM_DISABLED_STR))
             {
                 ThrowError("Client chose disabled str from menu (%d)", selection);
             }
-            int map_index = GetChosenMapIndex(chosen_map);
-            if (map_index == INVALID_MAP_ARR_INDEX)
-            {
-                ThrowError("Couldn't find map: \"%s\"", chosen_map);
-            }
 
-            ConfirmSoloMapPick(client, client_team, map_index, chosen_map);
+            ConfirmSoloMapPick(client, client_team, chosen_map);
         }
     }
     menu.Cancel();
     return 0;
 }
 
-void ConfirmSoloMapPick(int client, int team, int map_pick, const char[] map_name)
+void ConfirmSoloMapPick(int client, int team, const char[] map_name)
 {
     if (team != TEAM_JINRAI && team != TEAM_NSF)
     {
         ThrowError("Unexpected team: %d", team);
     }
-    else if (map_pick < 0 || map_pick >= sizeof(_maps))
+    else if (strlen(map_name) == 0)
     {
-        ThrowError("Unexpected map pick index: %d", map_pick);
+        ThrowError("Empty map name");
     }
 
-    _pending_map_pick_nomination_for_vote = map_pick;
-
-    char client_name[MAX_NAME_LENGTH];
-    GetClientName(client, client_name, sizeof(client_name));
+    strcopy(_pending_map_pick_nomination_for_vote,
+        sizeof(_pending_map_pick_nomination_for_vote), map_name);
 
     Menu vote_menu = new Menu(MenuHandler_ConfirmSoloMapPick, MenuAction_End);
     vote_menu.ExitButton = false;
@@ -718,9 +747,9 @@ void ConfirmSoloMapPick(int client, int team, int map_pick, const char[] map_nam
     bool is_ban_stage = (GetVetoStage() == VETO_STAGE_FIRST_TEAM_BAN ||
         GetVetoStage() == VETO_STAGE_SECOND_TEAM_BAN);
 
-    vote_menu.SetTitle("%s wants to use team %s for map: %s (need at least 50%c consensus)",
-        client_name,
+    vote_menu.SetTitle("Team %s suggestion by %N: %s (need at least 50%c consensus)",
         is_ban_stage ? "VETO" : "PICK",
+        client,
         map_name,
         '%'); // Note: the panel formats text differently, so need to use %c -> '%' for percentages here.
 
@@ -770,7 +799,8 @@ public void VoteHandler_ConfirmSoloMapPick(Menu menu, int num_votes, int num_cli
     // Nobody voted yes/no, don't do anything yet.
     if (num_votes == 0)
     {
-        _pending_map_pick_nomination_for_vote = INVALID_MAP_ARR_INDEX;
+        strcopy(_pending_map_pick_nomination_for_vote,
+            sizeof(_pending_map_pick_nomination_for_vote), "");
         return;
     }
 
@@ -813,9 +843,10 @@ public void VoteHandler_ConfirmSoloMapPick(Menu menu, int num_votes, int num_cli
 
             PrintToAllExceptTeam(voting_team, "[VETO] Team %s vetoes map: %s",
                 (voting_team == TEAM_JINRAI) ? jinrai_name : nsf_name,
-                _maps[_pending_map_pick_nomination_for_vote]);
+                _pending_map_pick_nomination_for_vote);
             LogToGame("[VETO] Team %s vetoes map: %s",
-                (voting_team == TEAM_JINRAI) ? jinrai_name : nsf_name, _maps[_pending_map_pick_nomination_for_vote]);
+                (voting_team == TEAM_JINRAI) ? jinrai_name : nsf_name,
+                _pending_map_pick_nomination_for_vote);
         }
         else if (GetVetoStage() == VETO_STAGE_FIRST_TEAM_PICK || GetVetoStage() == VETO_STAGE_SECOND_TEAM_PICK)
         {
@@ -824,9 +855,10 @@ public void VoteHandler_ConfirmSoloMapPick(Menu menu, int num_votes, int num_cli
 
             PrintToAllExceptTeam(voting_team, "[PICK] Team %s picks map: %s",
                 (voting_team == TEAM_JINRAI) ? jinrai_name : nsf_name,
-                _maps[_pending_map_pick_nomination_for_vote]);
+                _pending_map_pick_nomination_for_vote);
             LogToGame("[PICK] Team %s picks map: %s",
-                (voting_team == TEAM_JINRAI) ? jinrai_name : nsf_name, _maps[_pending_map_pick_nomination_for_vote]);
+                (voting_team == TEAM_JINRAI) ? jinrai_name : nsf_name,
+                _pending_map_pick_nomination_for_vote);
         }
         else
         {
@@ -836,7 +868,7 @@ public void VoteHandler_ConfirmSoloMapPick(Menu menu, int num_votes, int num_cli
         PrintToTeam(voting_team, "%s Your team %sd map %s (%d%s \"yes\" votes of %d votes total).",
             (GetVetoStage() == VETO_STAGE_FIRST_TEAM_BAN || GetVetoStage() == VETO_STAGE_SECOND_TEAM_BAN) ? "[VETO]" : "[PICK]",
             (GetVetoStage() == VETO_STAGE_FIRST_TEAM_BAN || GetVetoStage() == VETO_STAGE_SECOND_TEAM_BAN) ? "vetoe" : "picke",
-            _maps[_pending_map_pick_nomination_for_vote],
+            _pending_map_pick_nomination_for_vote,
             (num_yes_votes == 0) ? 100 : ((1 - (num_no_votes / num_yes_votes)) * 100),
             "%%",
             num_votes);
@@ -852,24 +884,13 @@ public void VoteHandler_ConfirmSoloMapPick(Menu menu, int num_votes, int num_cli
             "%%");
     }
 
-    _pending_map_pick_nomination_for_vote = INVALID_MAP_ARR_INDEX;
+    strcopy(_pending_map_pick_nomination_for_vote,
+        sizeof(_pending_map_pick_nomination_for_vote), "");
 
     if (IsVetoActive())
     {
         DoVeto();
     }
-}
-
-int GetChosenMapIndex(const char[] map)
-{
-    for (int i = 0; i < NUM_MAPS; ++i)
-    {
-        if (StrEqual(_maps[i], map))
-        {
-            return i;
-        }
-    }
-    return INVALID_MAP_ARR_INDEX;
 }
 
 stock int GetOpposingTeam(int team)
@@ -1003,23 +1024,6 @@ void AnnounceMaps()
         ThrowError("Invalid first team: %d", _first_veto_team);
     }
 
-    int first_map, second_map, third_map;
-    for (int i = 0; i < NUM_MAPS; ++i)
-    {
-        if (_is_picked_by[i] == GetOpposingTeam(_first_veto_team))
-        {
-            first_map = i;
-        }
-        else if (_is_picked_by[i] == _first_veto_team)
-        {
-            second_map = i;
-        }
-        else if (_is_picked_by[i] == TEAM_SPECTATOR)
-        {
-            third_map = i;
-        }
-    }
-
     Panel panel = new Panel();
 
     panel.SetTitle("Map pick results:");
@@ -1034,17 +1038,17 @@ void AnnounceMaps()
 
     PrintToConsoleAll("\n== MAP PICK RESULTS ==");
     LogToGame("\n== MAP PICK RESULTS ==");
-    Format(buffer, sizeof(buffer), "Map 1: %s", _maps[first_map]);
+    Format(buffer, sizeof(buffer), "Map 1: %s", (_first_veto_team == TEAM_JINRAI) ? _nsf_pick : _jinrai_pick);
     panel.DrawText(buffer);
     PrintToConsoleAll("  - %s (%s pick)", buffer, (_first_veto_team == TEAM_JINRAI) ? jinrai_name : nsf_name);
     LogToGame("  - %s (%s pick)", buffer, (_first_veto_team == TEAM_JINRAI) ? jinrai_name : nsf_name);
 
-    Format(buffer, sizeof(buffer), "Map 2: %s", _maps[second_map]);
+    Format(buffer, sizeof(buffer), "Map 2: %s", (_first_veto_team == TEAM_JINRAI) ? _jinrai_pick : _nsf_pick);
     panel.DrawText(buffer);
     PrintToConsoleAll("  - %s (%s pick)", buffer, (_first_veto_team == TEAM_JINRAI) ? nsf_name: jinrai_name);
     LogToGame("  - %s (%s pick)", buffer, (_first_veto_team == TEAM_JINRAI) ? nsf_name: jinrai_name);
 
-    Format(buffer, sizeof(buffer), "Map 3: %s", _maps[third_map]);
+    Format(buffer, sizeof(buffer), "Map 3: %s", _random_pick);
     panel.DrawText(buffer);
     PrintToConsoleAll("  - %s (random pick)\n", buffer);
     LogToGame("  - %s (random pick)\n", buffer);
@@ -1104,7 +1108,7 @@ public int Native_IsVetoActive(Handle plugin, int numParams)
 
 public int Native_GetVetoMapPoolSize(Handle plugin, int numParams)
 {
-    return NUM_MAPS;
+    return GetNumMaps();
 }
 
 public int Native_GetNameOfMapPoolMap(Handle plugin, int numParams)
@@ -1112,16 +1116,37 @@ public int Native_GetNameOfMapPoolMap(Handle plugin, int numParams)
     int map_index = GetNativeCell(1);
     int max_out_len = GetNativeCell(3);
 
-    if (map_index < 0 || map_index >= NUM_MAPS)
+    DataPack dp = new DataPack();
+    int num_maps = GetMaps(dp);
+    if (num_maps == 0)
     {
-        ThrowNativeError(1, "Unexpected map index %d (expected index in range: 0 - %d)", map_index, NUM_MAPS);
+        delete dp;
+        SetNativeString(2, NULL_STRING, max_out_len, false);
         return 0;
     }
-    else if (SetNativeString(2, _maps[map_index], max_out_len, false) != SP_ERROR_NONE)
+
+    if (map_index < 0 || map_index >= num_maps)
+    {
+        delete dp;
+        ThrowNativeError(1, "Unexpected map index %d (expected index in range: 0 - %d)", map_index, num_maps);
+        return 0;
+    }
+
+    char buffer[PLATFORM_MAX_PATH];
+
+    dp.Reset();
+    for (int i = 0; i < map_index; ++i)
+    {
+        dp.ReadString(buffer, sizeof(buffer));
+    }
+    dp.ReadString(buffer, sizeof(buffer));
+    delete dp;
+
+    if (SetNativeString(2, buffer, Min(max_out_len, sizeof(buffer)), false) != SP_ERROR_NONE)
     {
         return 0;
     }
-    return strlen(_maps[map_index]) + 1;
+    return strlen(buffer) + 1;
 }
 
 VetoStage GetVetoStage()
@@ -1141,30 +1166,75 @@ void SetVetoStage(VetoStage stage)
     }
 }
 
-void SetMapVetoPick(int team, int pick)
+void SetMapVetoPick(int team, const char[] pick)
 {
-    if (pick < 0 || pick >= sizeof(_maps))
+    if (strlen(pick) == 0)
     {
-        ThrowError("Invalid map pick index: %d", pick);
+        ThrowError("Empty pick");
     }
-    else if (team != TEAM_SPECTATOR && team != TEAM_JINRAI && team != TEAM_NSF)
+    else if (!IsMapValid(pick))
     {
-        ThrowError("Unexpected team: %d", team);
+        LogError("Map doesn't exist on the server: \"%s\"", pick);
     }
 
-    if (GetVetoStage() == VETO_STAGE_FIRST_TEAM_BAN || GetVetoStage() == VETO_STAGE_SECOND_TEAM_BAN)
+    if (_first_veto_team != TEAM_JINRAI && _first_veto_team != TEAM_NSF)
     {
-        _is_vetoed_by[pick] = team;
+        ThrowError("_first_veto_team invalid (%d)", _first_veto_team);
+    }
+
+    VetoStage stage = GetVetoStage();
+    int picking_team = GetPickingTeam();
+
+    if (stage == VETO_STAGE_FIRST_TEAM_BAN || stage == VETO_STAGE_SECOND_TEAM_BAN)
+    {
+        if (picking_team == TEAM_JINRAI)
+        {
+            strcopy(_jinrai_veto, sizeof(_jinrai_veto), pick);
+        }
+        else
+        {
+            strcopy(_nsf_veto, sizeof(_nsf_veto), pick);
+        }
+    }
+    else if (stage == VETO_STAGE_FIRST_TEAM_PICK || stage == VETO_STAGE_SECOND_TEAM_PICK)
+    {
+        if (picking_team == TEAM_JINRAI)
+        {
+            strcopy(_jinrai_pick, sizeof(_jinrai_pick), pick);
+        }
+        else
+        {
+            strcopy(_nsf_pick, sizeof(_nsf_pick), pick);
+        }
+
+        char msg[256];
+        Format(msg, sizeof(msg), "%s %s map is: %s",
+            g_sTag,
+            ((stage == VETO_STAGE_SECOND_TEAM_PICK) ? "First" : "Second"),
+            pick);
+        PrintToChatAll("%s", msg);
+        PrintToConsoleAll("%s", msg);
+        LogToGame("%s", msg);
+    }
+    else if (stage == VETO_STAGE_RANDOM_THIRD_MAP)
+    {
+        strcopy(_random_pick, sizeof(_random_pick), pick);
+
+        char msg[256];
+        Format(msg, sizeof(msg), "%s Third map is: %s", g_sTag, pick);
+        PrintToChatAll("%s", msg);
+        PrintToConsoleAll("%s", msg);
+        LogToGame("%s", msg);
     }
     else
     {
-        _is_picked_by[pick] = team;
+        ThrowError("Fell through the VETO_STAGE logic");
     }
 
     Call_StartForward(g_hForwardVetoPick);
     Call_PushCell(GetVetoStage());
     Call_PushCell(team);
-    Call_PushCell(pick);
+    Call_PushString(pick);
     Call_Finish();
 }
 
@@ -1197,3 +1267,126 @@ stock void PrintToConsoleAll(const char[] format, any ...)
     }
 }
 #endif
+
+// Get the veto map pool.
+// If you just want the number of maps, pass in no arguments.
+//
+// Note: This function will *not* initialize/reset/free the DataPack,
+// and will just write the map strings into its current position as-is;
+// the caller of this function is responsible for the DataPack memory
+// management.
+//
+// - Return value: the number of maps, or -1 on error
+// - Out value passed by-ref (optional): DataPack of 0 or more map strings
+// - Out value passed by-ref (optional): boolean of whether all of the out_dp pushed maps exist in server
+// - Error states: Missing or invalid config file(s). Will LogError the error, and return -1.
+int GetMaps(DataPack out_dp = null, bool& all_maps_exist_on_server = false)
+{
+    all_maps_exist_on_server = false;
+
+    char path[PLATFORM_MAX_PATH];
+    if (BuildPath(Path_SM, path, sizeof(path), "configs/veto.cfg") < 0)
+    {
+        LogError("Failed to build path");
+        return -1;
+    }
+    if (!FileExists(path))
+    {
+        LogError("Config path doesn't exist: \"%s\"", path);
+        return -1;
+    }
+
+    KeyValues kv = new KeyValues("cfg_veto");
+    if (!kv.ImportFromFile(path))
+    {
+        LogError("Failed to import cfg to keyvalues: \"%s\"", path);
+        return -1;
+    }
+
+    int version = kv.GetNum("version");
+    if (version == 0)
+    {
+        delete kv;
+        LogError("Invalid config version or no version found");
+        return -1;
+    }
+    else if (version != VETOS_CFG_VERSION)
+    {
+        delete kv;
+        LogError("Unsupported config version %d (expected version %d)",
+            version, VETOS_CFG_VERSION);
+        return -1;
+    }
+
+    kv.GetString("map_pool_file", path, sizeof(path));
+    if (!FileExists(path))
+    {
+        delete kv;
+        LogError("Veto map pool path doesn't exist: \"%s\"", path);
+        return -1;
+    }
+
+    delete kv;
+
+    File f = OpenFile(path, "rt");
+    if (f == null)
+    {
+        ThrowError("Failed to open veto map pool path: \"%s\"", path);
+    }
+
+    all_maps_exist_on_server = true;
+    int num_maps;
+    // Iterate the file lines & populate the datapack map strings.
+    while (!f.EndOfFile())
+    {
+        char line[PLATFORM_MAX_PATH];
+        // Returns false on empty lines, so we try a manual Read because
+        // we wanna support reading past empty lines.
+        while (!f.ReadLine(line, sizeof(line)))
+        {
+            int dummy[1];
+            // Try and step over the presumed empty line
+            if (f.Read(dummy, sizeof(dummy), 1))
+            {
+                continue;
+            }
+            // Read failed. EOF?
+            break;
+        }
+
+        TrimString(line);
+
+        // We're using the semicolon as the INI file comment character
+        int semicolon_pos = FindCharInString(line, ';');
+        // Ignore lines that start with a ;comment, and lines that are empty
+        if (semicolon_pos == 0 || strlen(line) == 0)
+        {
+            continue;
+        }
+        // Terminate string at any trailing ;comment
+        if (semicolon_pos > 0)
+        {
+            line[semicolon_pos] = '\0';
+        }
+
+        if (!IsMapValid(line))
+        {
+            all_maps_exist_on_server = false;
+        }
+
+        if (out_dp != null)
+        {
+            out_dp.WriteString(line);
+        }
+
+        ++num_maps;
+    }
+    f.Close();
+
+    return num_maps;
+}
+
+int GetNumMaps()
+{
+    return GetMaps();
+}
