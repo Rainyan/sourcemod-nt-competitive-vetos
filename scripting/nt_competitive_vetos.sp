@@ -5,9 +5,11 @@
 
 #include <neotokyo>
 
+#pragma newdecls required
+
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "0.4.4"
+#define PLUGIN_VERSION "0.4.5"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -15,10 +17,10 @@
 Handle g_hForwardVetoStageUpdate = INVALID_HANDLE;
 Handle g_hForwardVetoPick = INVALID_HANDLE;
 
-static const String:g_sTag[] = "[MAP PICK]";
-static const String:g_sSound_Veto[] = "ui/buttonrollover.wav";
-static const String:g_sSound_Pick[] = "ui/buttonclick.wav";
-static const String:g_sSound_Results[] = "player/CPcaptured.wav";
+static char g_sTag[] = "[MAP PICK]";
+static char g_sSound_Veto[] = "ui/buttonrollover.wav";
+static char g_sSound_Pick[] = "ui/buttonclick.wav";
+static char g_sSound_Results[] = "player/CPcaptured.wav";
 
 #define ITEM_DISABLED_STR "null"
 
@@ -34,15 +36,17 @@ static const String:g_sSound_Results[] = "player/CPcaptured.wav";
 //#define DEBUG_ALL_VETOS_BY_JINRAI
 
 // TODO: Move map pool out of code into a config file, and allow any sized map pool.
-#define NUM_MAPS 7
-static const String:_maps[NUM_MAPS][] = {
-    "nt_ballistrade_ctg",
-    "nt_shipment_ctg_comp_rc1",
-    "nt_snowfall_ctg_b3",
-    "nt_oliostain_ctg_b3",
-    "nt_rise_ctg",
+#define NUM_MAPS 9
+static char _maps[NUM_MAPS][] = {
+    "Ballistremade",
+    "nt_envoy_ctg_b1",
+    "nt_ghost_ctg",
+    "Rise",
+    "Shipment",
+    "nt_snowfall_ctg_b6",
     "nt_threadplate_ctg",
-    "nt_turmuk_ctg_beta3"
+    "nt_ikasen_ctg_b7",
+    "Pagoda"
 };
 
 static int _is_vetoed_by[NUM_MAPS];
@@ -937,14 +941,14 @@ int GetNumPlayersInTeam(int team)
     return num_players;
 }
 
-void PrintToTeam(int team, const String:message[], any ...)
+void PrintToTeam(int team, const char[] message, any ...)
 {
     if (team < TEAM_NONE || team > TEAM_NSF)
     {
         ThrowError("Invalid team: %d", team);
     }
 
-    decl String:formatMsg[512];
+    char formatMsg[512];
     VFormat(formatMsg, sizeof(formatMsg), message, 3);
 
     for (int client = 1; client <= MaxClients; client++)
@@ -962,14 +966,14 @@ void PrintToTeam(int team, const String:message[], any ...)
     }
 }
 
-void PrintToAllExceptTeam(int team, const String:message[], any ...)
+void PrintToAllExceptTeam(int team, const char[] message, any ...)
 {
     if (team < TEAM_NONE || team > TEAM_NSF)
     {
         ThrowError("Invalid team: %d", team);
     }
 
-    decl String:formatMsg[512];
+    char formatMsg[512];
     VFormat(formatMsg, sizeof(formatMsg), message, 3);
 
     for (int client = 1; client <= MaxClients; client++)
