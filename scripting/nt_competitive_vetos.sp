@@ -9,7 +9,7 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "0.5.0"
+#define PLUGIN_VERSION "0.5.1"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -1331,7 +1331,8 @@ int GetMaps(DataPack out_dp = null, bool& all_maps_exist_on_server = false)
     File f = OpenFile(path, "rt");
     if (f == null)
     {
-        ThrowError("Failed to open veto map pool path: \"%s\"", path);
+        LogError("Failed to open veto map pool path: \"%s\"", path);
+        return -1;
     }
 
     all_maps_exist_on_server = true;
