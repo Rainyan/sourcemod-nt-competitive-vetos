@@ -86,8 +86,8 @@ public void OnAllPluginsLoaded()
 }
 
 // ...But for most intents and purposes, you probably don't care about the above natives,
-// and instead just want to subscribe to one or two of the following to track the relevant
-// veto state updates:
+// and instead just want to subscribe to one or two of the following global forwards to
+// track the relevant veto state updates:
 
 public void OnMapVetoStageUpdate(int new_veto_stage)
 {
