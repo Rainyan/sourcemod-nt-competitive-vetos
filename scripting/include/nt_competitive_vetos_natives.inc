@@ -39,7 +39,7 @@ native int CompetitiveVetos_GetVetoMapPoolSize();
  *
  * @param1 map_index          Index of the map name to fetch.
  * @param2 out_buffer         Char array to store the fetched map into. Will be passed to by reference.
- * @param3 max_len            Maximum buffer size of out_buffer.
+ * @param3 max_len            Maximum buffer size of out_buffer. It is recommended to provide a buffer of size PLATFORM_MAX_PATH.
  * @return                    Number of characters written in the out_buffer (including null terminator), or 0 if failed to write.
  */
 native int CompetitiveVetos_GetNameOfMapPoolMap(int map_index, char[] out_buffer, int max_len);
