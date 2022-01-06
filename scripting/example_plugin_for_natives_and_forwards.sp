@@ -91,7 +91,7 @@ public void OnAllPluginsLoaded()
 public void OnMapVetoStageUpdate(int new_veto_stage)
 {
     // See the enums for deciphering what happened,
-    // and whether your plugin is interested to do something
+    // and whether your plugin is interested in doing something
     // with that information.
     PrintToServer("OnMapVetoStageUpdate: %d", new_veto_stage);
 }
