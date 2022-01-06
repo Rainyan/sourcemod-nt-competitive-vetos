@@ -7,7 +7,10 @@
 #include <nt_competitive_vetos_natives>
 
 /*
-Example veto flow:
+This is an example plugin for accessing all of the veto states available to
+third party plugins.
+
+Example veto flow follows (if you just want the implementation details, scroll down):
 
 ===========================================
 OnAllPluginsLoaded() output of this plugin:
