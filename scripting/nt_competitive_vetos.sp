@@ -9,7 +9,7 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "0.5.2"
+#define PLUGIN_VERSION "0.5.3"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -1368,6 +1368,7 @@ int GetMaps(DataPack out_dp = null, bool& all_maps_exist_on_server = false)
         if (semicolon_pos > 0)
         {
             line[semicolon_pos] = '\0';
+            TrimString(line);
         }
 
         if (!IsMapValid(line))
