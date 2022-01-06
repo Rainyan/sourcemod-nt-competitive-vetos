@@ -9,7 +9,7 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "0.5.4"
+#define PLUGIN_VERSION "0.5.5"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -1301,6 +1301,7 @@ int GetMaps(DataPack out_dp = null, bool& all_maps_exist_on_server = false)
     KeyValues kv = new KeyValues("cfg_veto");
     if (!kv.ImportFromFile(path))
     {
+        delete kv;
         LogError("Failed to import cfg to keyvalues: \"%s\"", path);
         return -1;
     }
