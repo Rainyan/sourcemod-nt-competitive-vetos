@@ -10,7 +10,8 @@
 This is an example plugin for accessing all of the veto states available to
 third party plugins.
 
-Example veto flow follows (if you just want the implementation details, scroll down):
+Example veto flow follows (if you just want the relevant implementation
+details, scroll down to the bottom of this file):
 
 ===========================================
 OnAllPluginsLoaded() output of this plugin:
@@ -83,12 +84,20 @@ public void OnAllPluginsLoaded()
     }
 }
 
+// ...But for most intents and purposes, you probably don't care about the above natives,
+// and instead just want to subscribe to one or two of the following to track the relevant
+// veto state updates:
+
 public void OnMapVetoStageUpdate(int new_veto_stage)
 {
+    // See the enums for deciphering what happened,
+    // and whether your plugin is interested to do something
+    // with that information.
     PrintToServer("OnMapVetoStageUpdate: %d", new_veto_stage);
 }
 
 public void OnMapVetoPick(int current_veto_stage, int vetoing_team, const char[] map_name)
 {
+    // This global forward is useful if you just want to know which maps were chosen.
     PrintToServer("OnMapVetoPick: %d, %d, \"%s\"", current_veto_stage, vetoing_team, map_name);
 }
