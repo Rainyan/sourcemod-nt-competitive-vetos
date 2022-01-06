@@ -99,5 +99,6 @@ public void OnMapVetoStageUpdate(int new_veto_stage)
 public void OnMapVetoPick(int current_veto_stage, int vetoing_team, const char[] map_name)
 {
     // This global forward is useful if you just want to know which maps were chosen.
+    // Check the veto enums to know if this map pick was the first, second, third...
     PrintToServer("OnMapVetoPick: %d, %d, \"%s\"", current_veto_stage, vetoing_team, map_name);
 }
