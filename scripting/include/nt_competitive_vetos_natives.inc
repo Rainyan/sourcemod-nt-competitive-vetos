@@ -32,8 +32,10 @@ native int CompetitiveVetos_GetVetoMapPoolSize();
  * map will be at index 0, second map at index 1, and so on.
  *
  * Requesting an index that is out of bounds will fire ThrowNativeError;
- * you can ensure the request will be in bounds with CompetitiveVetos_GetVetoMapPoolSize()
- * before calling this.
+ * you can ensure the request will be in bounds by querying
+ * n = CompetitiveVetos_GetVetoMapPoolSize() to determine a valid range of
+ * ("0 to n"), and then providing map_index to this call accordingly
+ * if that n was > 0.
  *
  * @param1 map_index          Index of the map name to fetch.
  * @param2 out_buffer         Char array to store the fetched map into. Will be passed to by reference.
