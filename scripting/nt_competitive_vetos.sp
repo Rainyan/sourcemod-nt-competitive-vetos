@@ -9,7 +9,7 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "0.5.1"
+#define PLUGIN_VERSION "0.5.2"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -270,7 +270,7 @@ public Action Cmd_CancelVeto(int client, int argc)
 
     if (team <= TEAM_SPECTATOR)
     {
-        ReplyToCommand(client, "%s Picks can only be initiated by the players.", g_sTag);
+        ReplyToCommand(client, "%s Picks can only be uninitiated by the players.", g_sTag);
         return Plugin_Handled;
     }
     else if (Competitive_IsLive())
