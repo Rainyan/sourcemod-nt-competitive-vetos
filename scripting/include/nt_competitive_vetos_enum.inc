@@ -7,6 +7,9 @@
 // Please note that "Team 1" and "Team 2" in the specific veto stage comments
 // below do not refer to any actual team indices; "Team 1" can be either TEAM_JINRAI
 // or TEAM_NSF, and "Team 2" will be whichever of the two "Team 1" isn't.
+// As such, the veto/pick order can be either one of:
+//   - Jinrai, NSF, NSF, Jinrai, random
+//   - NSF, Jinrai, Jinrai, NSF, random
 enum VetoStage {
     VETO_STAGE_INACTIVE = 0,         // - Vetoing is not happening at all currently (or was finished)
     VETO_STAGE_COIN_FLIP,            // - Doing a coin flip to decide who vetoes first
