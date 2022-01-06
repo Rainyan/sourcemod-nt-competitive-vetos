@@ -1269,7 +1269,9 @@ stock void PrintToConsoleAll(const char[] format, any ...)
 #endif
 
 // Get the veto map pool.
-// If you just want the number of maps, pass in no arguments.
+// If you just want the number of maps, pass in no arguments
+// (or more preferably call GetNumMaps() instead for clearly stating that
+// intent).
 //
 // Note: This function will *not* initialize/reset/free the DataPack,
 // and will just write the map strings into its current position as-is;
