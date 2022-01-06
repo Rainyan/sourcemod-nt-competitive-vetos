@@ -9,7 +9,7 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "0.5.3"
+#define PLUGIN_VERSION "0.5.4"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -453,7 +453,7 @@ void DoCoinFlip(const int coinflip_stage = 0)
         LogToGame("%s %s", g_sTag, text);
 
 #define COINFLIP_RESULTS_SHOW_DURATION 5
-        CreateTimer(COINFLIP_RESULTS_SHOW_DURATION * 1.0, Timer_StartVeto, _, TIMER_FLAG_NO_MAPCHANGE);
+        CreateTimer(float(COINFLIP_RESULTS_SHOW_DURATION), Timer_StartVeto, _, TIMER_FLAG_NO_MAPCHANGE);
     }
 
     for (int client = 1; client <= MaxClients; ++client)
