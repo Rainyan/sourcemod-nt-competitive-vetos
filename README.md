@@ -1,5 +1,5 @@
 # sourcemod-nt-competitive-vetos
-SourceMod plugin for NT: A WIP veto system.
+A SourceMod plugin for Neotokyo that introduces a map veto system for competitive play.
 
 ## Compile requirements
 ### SourceMod version
@@ -24,6 +24,8 @@ The actual veto process is controlled by interactive panels using the number key
 In addition to the standard .smx plugin installation, this plugin requires two additional config files to be placed in `addons/sourcemod/configs`:
 * _veto.cfg_ – Config file for defining the veto map pool to be used.
 * _veto_maplist.ini_ – The default map pool file, referenced by _veto.cfg_. If you're running a single veto pool, this is the file you will primarily want to edit. If you instead require multiple veto pools, you can create additional files and swap those in the _veto.cfg_ config as required.
+### Server requirements
+* The server must also be running the [nt_competitive](https://github.com/Rainyan/sourcemod-nt-competitive) plugin.
 
 You can find the example config files in the [configs folder](configs/) of this repo.
 
