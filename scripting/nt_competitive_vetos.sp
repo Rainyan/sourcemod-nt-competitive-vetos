@@ -1413,34 +1413,19 @@ int GetNumMaps()
 }
 
 #if defined(DEBUG_FAKE_VETOS)
-#define NUM_RANDOM_MAPS 24
 // If you want the same map pool as for real vetos,
 // copy your veto_maplist.ini map pool here.
+#define NUM_RANDOM_MAPS 9
 static char _random_maps[NUM_RANDOM_MAPS][] = {
-    "nt_ballistrade_ctg",
-    "nt_bullet_tdm",
-    "nt_dawn_ctg",
-    "nt_decom_ctg",
-    "nt_disengage_ctg",
-    "nt_dusk_ctg",
-    "nt_engage_ctg",
+    "nt_ballistremade_ctg_a13",
+    "nt_envoy_ctg_b1",
     "nt_ghost_ctg",
-    "nt_isolation_ctg",
-    "nt_marketa_ctg",
-    "nt_oilstain_ctg",
-    "nt_pissalley_ctg",
-    "nt_redlight_ctg",
-    "nt_ridgeline_ctg",
+    "nt_ikasen_ctg_b7",
+    "nt_pagoda_fix_a2",
     "nt_rise_ctg",
-    "nt_saitama_ctg",
-    "nt_sentinel_ctg",
-    "nt_shrine_ctg",
-    "nt_skyline_ctg",
-    "nt_subsurface_ctg",
-    "nt_tarmac_ctg",
+    "nt_shipment_ctg_comp_rc1",
+    "nt_snowfall_ctg_b6",
     "nt_threadplate_ctg",
-    "nt_transit_ctg",
-    "nt_vtol_ctg",
 };
 bool _is_random_map_picked[NUM_RANDOM_MAPS];
 
@@ -1501,7 +1486,6 @@ public Action Timer_FakeFirstVeto(Handle timer)
 
 public Action Timer_FakeSecondVeto(Handle timer)
 {
-    bool already_picked;
     int seed_iter = 1;
     int map;
     do
@@ -1509,13 +1493,8 @@ public Action Timer_FakeSecondVeto(Handle timer)
         SetRandomSeed(GetTime() + seed_iter);
         seed_iter += 1;
         map = GetRandomInt(0, NUM_RANDOM_MAPS - 1);
-        if (_is_random_map_picked[map])
-        {
-            already_picked = true;
-            continue;
-        }
     }
-    while (already_picked);
+    while (_is_random_map_picked[map]);
     _is_random_map_picked[map] = true;
 
     if (_first_veto_team == TEAM_JINRAI)
@@ -1544,7 +1523,6 @@ public Action Timer_FakeSecondVeto(Handle timer)
 
 public Action Timer_FakeSecondPick(Handle timer, DataPack picked_maps)
 {
-    bool already_picked;
     int seed_iter = 2;
     int map;
     do
@@ -1552,13 +1530,8 @@ public Action Timer_FakeSecondPick(Handle timer, DataPack picked_maps)
         SetRandomSeed(GetTime() + seed_iter);
         seed_iter += 1;
         map = GetRandomInt(0, NUM_RANDOM_MAPS - 1);
-        if (_is_random_map_picked[map])
-        {
-            already_picked = true;
-            continue;
-        }
     }
-    while (already_picked);
+    while (_is_random_map_picked[map]);
     _is_random_map_picked[map] = true;
 
     if (_first_veto_team == TEAM_JINRAI)
@@ -1587,7 +1560,6 @@ public Action Timer_FakeSecondPick(Handle timer, DataPack picked_maps)
 
 public Action Timer_FakeFirstPick(Handle timer)
 {
-    bool already_picked;
     int seed_iter = 3;
     int map;
     do
@@ -1595,13 +1567,8 @@ public Action Timer_FakeFirstPick(Handle timer)
         SetRandomSeed(GetTime() + seed_iter);
         seed_iter += 1;
         map = GetRandomInt(0, NUM_RANDOM_MAPS - 1);
-        if (_is_random_map_picked[map])
-        {
-            already_picked = true;
-            continue;
-        }
     }
-    while (already_picked);
+    while (_is_random_map_picked[map]);
     _is_random_map_picked[map] = true;
 
     if (_first_veto_team == TEAM_JINRAI)
@@ -1630,7 +1597,6 @@ public Action Timer_FakeFirstPick(Handle timer)
 
 public Action Timer_RandomThirdPick(Handle timer, DataPack picked_maps)
 {
-    bool already_picked;
     int seed_iter = 4;
     int map;
     do
@@ -1638,13 +1604,8 @@ public Action Timer_RandomThirdPick(Handle timer, DataPack picked_maps)
         SetRandomSeed(GetTime() + seed_iter);
         seed_iter += 1;
         map = GetRandomInt(0, NUM_RANDOM_MAPS - 1);
-        if (_is_random_map_picked[map])
-        {
-            already_picked = true;
-            continue;
-        }
     }
-    while (already_picked);
+    while (_is_random_map_picked[map]);
     _is_random_map_picked[map] = true;
 
     strcopy(_random_pick, sizeof(_random_pick), _random_maps[map]);
