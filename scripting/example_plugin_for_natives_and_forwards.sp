@@ -64,6 +64,16 @@ OnMapVetoStageUpdate: 0 (VETO_STAGE_INACTIVE)
 
 public void OnAllPluginsLoaded()
 {
+    // Passed by ref from CompetitiveVetos_IsVetoActive
+    int first_vetoing_team;
+
+    if (!CompetitiveVetos_IsVetoActive(first_vetoing_team)) {
+        PrintToServer("Veto is not currently active");
+    }
+    else {
+        PrintToServer("Team that vetoes first: %d", first_vetoing_team);
+    }
+
     // Amount of maps available in the competitive veto/picks pool total.
     int num_maps = CompetitiveVetos_GetVetoMapPoolSize();
 
@@ -89,15 +99,20 @@ public void OnAllPluginsLoaded()
 // and instead just want to subscribe to one or two of the following global forwards to
 // track the relevant veto state updates:
 
-public void OnMapVetoStageUpdate(int new_veto_stage)
+public void OnMapVetoStageUpdate(VetoStage new_veto_stage, int param2)
 {
     // See the enums for deciphering what happened,
     // and whether your plugin is interested in doing something
     // with that information.
-    PrintToServer("OnMapVetoStageUpdate: %d", new_veto_stage);
+    PrintToServer("OnMapVetoStageUpdate: %d (param 2: %d)", new_veto_stage, param2);
+
+    // If (new_veto_stage == VETO_STAGE_COIN_FLIP_RESULT): param2 will contain the team index that vetoes first.
+    if (new_veto_stage == VETO_STAGE_COIN_FLIP_RESULT) {
+        PrintToServer("Coin flip result: team %d vetoes first", param2);
+    }
 }
 
-public void OnMapVetoPick(int current_veto_stage, int vetoing_team, const char[] map_name)
+public void OnMapVetoPick(VetoStage current_veto_stage, int vetoing_team, const char[] map_name)
 {
     // This global forward is useful if you just want to know which maps were chosen.
     // Check the veto enums to know if this map pick was the first, second, third...

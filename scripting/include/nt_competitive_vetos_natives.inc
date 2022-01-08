@@ -15,7 +15,7 @@
  *
  * @return                    True if veto is currently active, false otherwise.
  */
-native bool CompetitiveVetos_IsVetoActive();
+native bool CompetitiveVetos_IsVetoActive(int& first_veto_team = 0);
 
 /**
  * Returns the number of maps in the current competitive veto/picks map pool.
@@ -49,11 +49,13 @@ native int CompetitiveVetos_GetNameOfMapPoolMap(int map_index, char[] out_buffer
  *************/
 
 /* Called whenever the veto state changes according to the enum above.
-*    public void OnMapVetoStageUpdate(int new_veto_stage);
+*    public void OnMapVetoStageUpdate(VetoStage new_veto_stage, int param2);
 *      - new_veto_stage:          VetoStage enum that was entered when this forward fired.
+*      - param2:                  If (new_veto_stage == VETO_STAGE_COIN_FLIP_RESULT): Will contain the team index that vetoes first.
+                                  Else, this value will not represent any information, in which case it will hold the value -1.
 */
 
-/* public void OnMapVetoPick(int current_veto_stage, int vetoing_team, const char[] map_name);
+/* public void OnMapVetoPick(VetoStage current_veto_stage, int vetoing_team, const char[] map_name);
 *    Called whenever a team decides on one of their pick/ban.
 *      - current_veto_stage:      VetoStage enum for determining what kind of pick this was.
 *

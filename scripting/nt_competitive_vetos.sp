@@ -9,7 +9,7 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "0.5.5"
+#define PLUGIN_VERSION "1.0.0"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -28,6 +28,13 @@ static char g_sSound_Results[] = "player/CPcaptured.wav";
 
 // Debug flag for doing funky testing stuff. Don't enable for regular use.
 //#define DEBUG
+
+// Debug flag to simulate a random fake veto process. Don't enable for regular use.
+//#define DEBUG_FAKE_VETOS
+#if defined(DEBUG_FAKE_VETOS)
+// How long to wait between fake veto stages
+#define DEBUG_FAKE_VETOS_TIMER 5.0
+#endif
 
 // Debug flag for forcing all the vetos on the Jinrai team side.
 // Note that it's expected that this will report incorrect vote results for NSF,
@@ -87,14 +94,19 @@ public void OnPluginStart()
     RegAdminCmd("sm_resetveto", Cmd_AdminResetVeto, ADMFLAG_GENERIC, "Admin command to reset a veto in progress.");
     RegAdminCmd("sm_cancelveto", Cmd_AdminResetVeto, ADMFLAG_GENERIC, "Alias for sm_resetveto.");
     RegAdminCmd("sm_clearveto", Cmd_AdminResetVeto, ADMFLAG_GENERIC, "Alias for sm_resetveto.");
+
 #if defined(DEBUG)
     RegAdminCmd("sm_debug_redisplay_veto", Cmd_AdminDebug_ReDisplayVeto, ADMFLAG_GENERIC, "Re-display the veto.");
+#endif
+
+#if defined(DEBUG_FAKE_VETOS)
+    RegAdminCmd("sm_debug_fake_veto", Cmd_AdminDebug_FakeVeto, ADMFLAG_GENERIC, "Simulate/fake a random veto process.");
 #endif
 
     RegConsoleCmd("sm_veto", Cmd_StartVeto, "Ready the team for map picks/vetos.");
     RegConsoleCmd("sm_unveto", Cmd_CancelVeto, "Unready the team for map picks/vetos.");
 
-    g_hForwardVetoStageUpdate = CreateGlobalForward("OnMapVetoStageUpdate", ET_Ignore, Param_Cell);
+    g_hForwardVetoStageUpdate = CreateGlobalForward("OnMapVetoStageUpdate", ET_Ignore, Param_Cell, Param_Cell);
     g_hForwardVetoPick = CreateGlobalForward("OnMapVetoPick", ET_Ignore, Param_Cell, Param_Cell, Param_String);
 }
 
@@ -451,6 +463,8 @@ void DoCoinFlip(const int coinflip_stage = 0)
 
         PrintToConsoleAll("%s %s", g_sTag, text);
         LogToGame("%s %s", g_sTag, text);
+
+        SetVetoStage(VETO_STAGE_COIN_FLIP_RESULT);
 
 #define COINFLIP_RESULTS_SHOW_DURATION 5
         CreateTimer(float(COINFLIP_RESULTS_SHOW_DURATION), Timer_StartVeto, _, TIMER_FLAG_NO_MAPCHANGE);
@@ -1103,6 +1117,7 @@ bool IsVetoActive()
 
 public int Native_IsVetoActive(Handle plugin, int numParams)
 {
+    SetNativeCellRef(1, _first_veto_team);
     return IsVetoActive() ? 1 : 0;
 }
 
@@ -1162,6 +1177,7 @@ void SetVetoStage(VetoStage stage)
 
         Call_StartForward(g_hForwardVetoStageUpdate);
         Call_PushCell(stage);
+        Call_PushCell((_veto_stage == VETO_STAGE_COIN_FLIP_RESULT) ? _first_veto_team : -1);
         Call_Finish();
     }
 }
@@ -1395,3 +1411,371 @@ int GetNumMaps()
 {
     return GetMaps();
 }
+
+#if defined(DEBUG_FAKE_VETOS)
+public Action Cmd_AdminDebug_FakeVeto(int client, int argc)
+{
+    Call_StartForward(g_hForwardVetoStageUpdate);
+    Call_PushCell(VETO_STAGE_COIN_FLIP);
+    Call_PushCell(-1);
+    Call_Finish();
+
+    CreateTimer(DEBUG_FAKE_VETOS_TIMER, Timer_FakeCoinFlip);
+    return Plugin_Handled;
+}
+
+public Action Timer_FakeCoinFlip(Handle timer)
+{
+    SetRandomSeed(GetTime());
+    _first_veto_team = GetRandomInt(TEAM_JINRAI, TEAM_NSF);
+
+    Call_StartForward(g_hForwardVetoStageUpdate);
+    Call_PushCell(VETO_STAGE_COIN_FLIP_RESULT);
+    Call_PushCell(_first_veto_team);
+    Call_Finish();
+
+    CreateTimer(DEBUG_FAKE_VETOS_TIMER, Timer_FakeFirstVeto);
+    return Plugin_Stop;
+}
+
+public Action Timer_FakeFirstVeto(Handle timer)
+{
+    DataPack maps = new DataPack();
+    int num_maps = GetMaps(maps);
+    if (num_maps == 0)
+    {
+        delete maps;
+        ThrowError("Empty map pool");
+    }
+
+    SetRandomSeed(GetTime());
+    int map = GetRandomInt(0, num_maps - 1);
+
+    char map_name[PLATFORM_MAX_PATH];
+    maps.Reset();
+    for (int i = 0; i < map; ++i)
+    {
+        maps.ReadString(map_name, sizeof(map_name));
+    }
+    maps.ReadString(map_name, sizeof(map_name));
+    delete maps;
+
+    if (_first_veto_team == TEAM_JINRAI)
+    {
+        strcopy(_jinrai_veto, sizeof(_jinrai_veto), map_name);
+    }
+    else
+    {
+        strcopy(_nsf_veto, sizeof(_nsf_veto), map_name);
+    }
+
+    Call_StartForward(g_hForwardVetoPick);
+    Call_PushCell(VETO_STAGE_FIRST_TEAM_BAN);
+    Call_PushCell(_first_veto_team);
+    Call_PushString(map_name);
+    Call_Finish();
+
+    Call_StartForward(g_hForwardVetoStageUpdate);
+    Call_PushCell(VETO_STAGE_FIRST_TEAM_BAN);
+    Call_PushCell(-1);
+    Call_Finish();
+
+    DataPack picked_maps = new DataPack();
+    picked_maps.WriteString(map_name);
+
+    CreateTimer(DEBUG_FAKE_VETOS_TIMER, Timer_FakeSecondVeto, picked_maps);
+    return Plugin_Stop;
+}
+
+public Action Timer_FakeSecondVeto(Handle timer, DataPack picked_maps)
+{
+    DataPack maps = new DataPack();
+    int num_maps = GetMaps(maps);
+    if (num_maps == 0)
+    {
+        delete maps;
+        delete picked_maps;
+        ThrowError("Empty map pool");
+    }
+
+    char map_name[PLATFORM_MAX_PATH];
+    char buff[PLATFORM_MAX_PATH];
+    int seed_iter;
+    bool already_picked;
+    do
+    {
+        SetRandomSeed(GetTime() + seed_iter);
+        seed_iter += 8;
+        int map = GetRandomInt(0, num_maps - 1);
+
+        maps.Reset();
+        for (int i = 0; i < map; ++i)
+        {
+            maps.ReadString(map_name, sizeof(map_name));
+        }
+        maps.ReadString(map_name, sizeof(map_name));
+
+        picked_maps.Reset();
+        while (picked_maps.IsReadable(4))
+        {
+            picked_maps.ReadString(buff, sizeof(buff));
+            if (StrEqual(buff, map_name))
+            {
+                already_picked = true;
+                break;
+            }
+        }
+    }
+    while (already_picked);
+    delete maps;
+
+    picked_maps.Reset();
+    while (picked_maps.IsReadable(4))
+    {
+        picked_maps.ReadString(buff, sizeof(buff));
+    }
+    picked_maps.WriteString(map_name);
+
+    if (_first_veto_team == TEAM_JINRAI)
+    {
+        strcopy(_nsf_veto, sizeof(_nsf_veto), map_name);
+    }
+    else
+    {
+        strcopy(_jinrai_veto, sizeof(_jinrai_veto), map_name);
+    }
+
+    Call_StartForward(g_hForwardVetoPick);
+    Call_PushCell(VETO_STAGE_SECOND_TEAM_BAN);
+    Call_PushCell(GetOpposingTeam(_first_veto_team));
+    Call_PushString(map_name);
+    Call_Finish();
+
+    Call_StartForward(g_hForwardVetoStageUpdate);
+    Call_PushCell(VETO_STAGE_SECOND_TEAM_BAN);
+    Call_PushCell(-1);
+    Call_Finish();
+
+    CreateTimer(DEBUG_FAKE_VETOS_TIMER, Timer_FakeSecondPick, picked_maps);
+    return Plugin_Stop;
+}
+
+public Action Timer_FakeSecondPick(Handle timer, DataPack picked_maps)
+{
+    DataPack maps = new DataPack();
+    int num_maps = GetMaps(maps);
+    if (num_maps == 0)
+    {
+        delete maps;
+        delete picked_maps;
+        ThrowError("Empty map pool");
+    }
+
+    char map_name[PLATFORM_MAX_PATH];
+    char buff[PLATFORM_MAX_PATH];
+    int seed_iter;
+    bool already_picked;
+    do
+    {
+        SetRandomSeed(GetTime() + seed_iter);
+        seed_iter += 8;
+        int map = GetRandomInt(0, num_maps - 1);
+
+        maps.Reset();
+        for (int i = 0; i < map; ++i)
+        {
+            maps.ReadString(map_name, sizeof(map_name));
+        }
+        maps.ReadString(map_name, sizeof(map_name));
+
+        picked_maps.Reset();
+        while (picked_maps.IsReadable(4))
+        {
+            picked_maps.ReadString(buff, sizeof(buff));
+            if (StrEqual(buff, map_name))
+            {
+                already_picked = true;
+                break;
+            }
+        }
+    }
+    while (already_picked);
+    delete maps;
+
+    picked_maps.Reset();
+    while (picked_maps.IsReadable(4))
+    {
+        picked_maps.ReadString(buff, sizeof(buff));
+    }
+    picked_maps.WriteString(map_name);
+
+    if (_first_veto_team == TEAM_JINRAI)
+    {
+        strcopy(_nsf_pick, sizeof(_nsf_pick), map_name);
+    }
+    else
+    {
+        strcopy(_jinrai_pick, sizeof(_jinrai_pick), map_name);
+    }
+
+    Call_StartForward(g_hForwardVetoPick);
+    Call_PushCell(VETO_STAGE_SECOND_TEAM_PICK);
+    Call_PushCell(GetOpposingTeam(_first_veto_team));
+    Call_PushString(map_name);
+    Call_Finish();
+
+    Call_StartForward(g_hForwardVetoStageUpdate);
+    Call_PushCell(VETO_STAGE_SECOND_TEAM_PICK);
+    Call_PushCell(-1);
+    Call_Finish();
+
+    CreateTimer(DEBUG_FAKE_VETOS_TIMER, Timer_FakeFirstPick, picked_maps);
+    return Plugin_Stop;
+}
+
+public Action Timer_FakeFirstPick(Handle timer, DataPack picked_maps)
+{
+    DataPack maps = new DataPack();
+    int num_maps = GetMaps(maps);
+    if (num_maps == 0)
+    {
+        delete maps;
+        delete picked_maps;
+        ThrowError("Empty map pool");
+    }
+
+    char map_name[PLATFORM_MAX_PATH];
+    char buff[PLATFORM_MAX_PATH];
+    int seed_iter;
+    bool already_picked;
+    do
+    {
+        SetRandomSeed(GetTime() + seed_iter);
+        seed_iter += 8;
+        int map = GetRandomInt(0, num_maps - 1);
+
+        maps.Reset();
+        for (int i = 0; i < map; ++i)
+        {
+            maps.ReadString(map_name, sizeof(map_name));
+        }
+        maps.ReadString(map_name, sizeof(map_name));
+
+        picked_maps.Reset();
+        while (picked_maps.IsReadable(4))
+        {
+            picked_maps.ReadString(buff, sizeof(buff));
+            if (StrEqual(buff, map_name))
+            {
+                already_picked = true;
+                break;
+            }
+        }
+    }
+    while (already_picked);
+    delete maps;
+
+    picked_maps.Reset();
+    while (picked_maps.IsReadable(4))
+    {
+        picked_maps.ReadString(buff, sizeof(buff));
+    }
+    picked_maps.WriteString(map_name);
+
+    if (_first_veto_team == TEAM_JINRAI)
+    {
+        strcopy(_jinrai_pick, sizeof(_jinrai_pick), map_name);
+    }
+    else
+    {
+        strcopy(_nsf_pick, sizeof(_nsf_pick), map_name);
+    }
+
+    Call_StartForward(g_hForwardVetoPick);
+    Call_PushCell(VETO_STAGE_FIRST_TEAM_PICK);
+    Call_PushCell(_first_veto_team);
+    Call_PushString(map_name);
+    Call_Finish();
+
+    Call_StartForward(g_hForwardVetoStageUpdate);
+    Call_PushCell(VETO_STAGE_FIRST_TEAM_PICK);
+    Call_PushCell(-1);
+    Call_Finish();
+
+    CreateTimer(DEBUG_FAKE_VETOS_TIMER, Timer_RandomThirdPick, picked_maps);
+    return Plugin_Stop;
+}
+
+public Action Timer_RandomThirdPick(Handle timer, DataPack picked_maps)
+{
+    DataPack maps = new DataPack();
+    int num_maps = GetMaps(maps);
+    if (num_maps == 0)
+    {
+        delete maps;
+        delete picked_maps;
+        ThrowError("Empty map pool");
+    }
+
+    char map_name[PLATFORM_MAX_PATH];
+    char buff[PLATFORM_MAX_PATH];
+    int seed_iter;
+    bool already_picked;
+    do
+    {
+        SetRandomSeed(GetTime() + seed_iter);
+        seed_iter += 8;
+        int map = GetRandomInt(0, num_maps - 1);
+
+        maps.Reset();
+        for (int i = 0; i < map; ++i)
+        {
+            maps.ReadString(map_name, sizeof(map_name));
+        }
+        maps.ReadString(map_name, sizeof(map_name));
+
+        picked_maps.Reset();
+        while (picked_maps.IsReadable(4))
+        {
+            picked_maps.ReadString(buff, sizeof(buff));
+            if (StrEqual(buff, map_name))
+            {
+                already_picked = true;
+                break;
+            }
+        }
+    }
+    while (already_picked);
+    delete maps;
+
+    picked_maps.Reset();
+    while (picked_maps.IsReadable(4))
+    {
+        picked_maps.ReadString(buff, sizeof(buff));
+    }
+    picked_maps.WriteString(map_name);
+
+    delete picked_maps;
+
+    strcopy(_random_pick, sizeof(_random_pick), map_name);
+
+    Call_StartForward(g_hForwardVetoPick);
+    Call_PushCell(VETO_STAGE_RANDOM_THIRD_MAP);
+    Call_PushCell(TEAM_SPECTATOR);
+    Call_PushString(map_name);
+    Call_Finish();
+
+    Call_StartForward(g_hForwardVetoStageUpdate);
+    Call_PushCell(VETO_STAGE_RANDOM_THIRD_MAP);
+    Call_PushCell(-1);
+    Call_Finish();
+
+    ClearVeto();
+    Call_StartForward(g_hForwardVetoStageUpdate);
+    Call_PushCell(VETO_STAGE_INACTIVE);
+    Call_PushCell(-1);
+    Call_Finish();
+
+    return Plugin_Stop;
+}
+#endif
