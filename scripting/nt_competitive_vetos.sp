@@ -9,7 +9,7 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "1.0.2"
+#define PLUGIN_VERSION "1.0.1"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -1619,6 +1619,10 @@ public Action Timer_RandomThirdPick(Handle timer, DataPack picked_maps)
     Call_PushCell(VETO_STAGE_INACTIVE);
     Call_PushCell(-1);
     Call_Finish();
+
+    for (int i = 0; i < sizeof(_is_random_map_picked); ++i) {
+        _is_random_map_picked[i] = false;
+    }
 
     return Plugin_Stop;
 }
