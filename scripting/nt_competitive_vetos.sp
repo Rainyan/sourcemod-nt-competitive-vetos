@@ -9,7 +9,7 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "1.1.0"
+#define PLUGIN_VERSION "1.2.0"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -77,6 +77,10 @@ native bool Competitive_IsLive();
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
+    // Remember to always confirm whether we've got nt_competitive loaded with
+    // CompPluginIsLoaded() before calling this optional native.
+    MarkNativeAsOptional("Competitive_IsLive");
+
     // These names must be guaranteed globally unique.
     // Also note that renaming them may break other plugins relying on these native calls.
     CreateNative("CompetitiveVetos_IsVetoActive", Native_IsVetoActive);
@@ -214,7 +218,8 @@ public Action Cmd_StartVeto(int client, int argc)
         ReplyToCommand(client, "%s Both teams need to have players in them to start the map picks.", g_sTag);
         return Plugin_Handled;
     }
-    else if (Competitive_IsLive())
+    // Need to confirm comp plugin is loaded before attempting to call optional native.
+    else if (CompPluginIsLoaded() && Competitive_IsLive())
     {
         ReplyToCommand(client, "%s Cannot start the veto when the match is live.", g_sTag);
         return Plugin_Handled;
@@ -281,7 +286,8 @@ public Action Cmd_CancelVeto(int client, int argc)
         ReplyToCommand(client, "%s Picks can only be uninitiated by the players.", g_sTag);
         return Plugin_Handled;
     }
-    else if (Competitive_IsLive())
+    // Need to confirm comp plugin is loaded before attempting to call optional native.
+    else if (CompPluginIsLoaded() && Competitive_IsLive())
     {
         ReplyToCommand(client, "%s Match is already live; cannot modify a veto right now.", g_sTag);
         return Plugin_Handled;
@@ -341,7 +347,8 @@ public Action Cmd_AdminForceVeto(int client, int argc)
         ReplyToCommand(client, "%s Usage: %s jinrai/nsf (don't use a team custom name)", g_sTag, cmd_name);
         return Plugin_Handled;
     }
-    else if (Competitive_IsLive())
+    // Need to confirm comp plugin is loaded before attempting to call optional native.
+    else if (CompPluginIsLoaded() && Competitive_IsLive())
     {
         ReplyToCommand(client, "%s Cannot start the veto when the match is live.", g_sTag);
         return Plugin_Handled;
@@ -716,12 +723,9 @@ public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int sele
             char jinrai_name[MAX_CUSTOM_TEAM_NAME_LEN] = "Jinrai";
             char nsf_name[MAX_CUSTOM_TEAM_NAME_LEN] = "NSF";
 
-            if (g_hCvar_JinraiName != null)
+            if (CompPluginIsLoaded())
             {
                 g_hCvar_JinraiName.GetString(jinrai_name, sizeof(jinrai_name));
-            }
-            if (g_hCvar_NsfName != null)
-            {
                 g_hCvar_NsfName.GetString(nsf_name, sizeof(nsf_name));
             }
 
@@ -934,7 +938,8 @@ int GetPickingTeam()
 
 bool ResetPicksIfShould()
 {
-    if (Competitive_IsLive())
+    // Need to confirm comp plugin is loaded before attempting to call optional native.
+    if (CompPluginIsLoaded() && Competitive_IsLive())
     {
         PrintToChatAll("%s Game is already live, cancelling pending map picks.", g_sTag);
         PrintToConsoleAll("%s Game is already live, cancelling pending map picks.", g_sTag);
@@ -1105,7 +1110,7 @@ void GetCompetitiveTeamName(const int team, char[] out_name, const int max_len)
         ThrowError("Unexpected team index: %d", team);
     }
 
-    if (g_hCvar_JinraiName != null && g_hCvar_NsfName != null)
+    if (CompPluginIsLoaded())
     {
         GetConVarString((team == TEAM_JINRAI) ? g_hCvar_JinraiName : g_hCvar_NsfName, out_name, max_len);
         if (strlen(out_name) == 0)
@@ -1419,6 +1424,13 @@ int GetMaps(DataPack out_dp = null, bool& all_maps_exist_on_server = false)
 int GetNumMaps()
 {
     return GetMaps();
+}
+
+// The nt_competitive plugin defines this cvar, so we can determine whether
+// the plugin is loaded by its existence.
+bool CompPluginIsLoaded()
+{
+    return g_hCvar_JinraiName != null;
 }
 
 #if defined(DEBUG_FAKE_VETOS)
