@@ -9,7 +9,7 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "1.0.1"
+#define PLUGIN_VERSION "1.1.0"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -114,10 +114,6 @@ public void OnAllPluginsLoaded()
 {
     g_hCvar_JinraiName = FindConVar("sm_competitive_jinrai_name");
     g_hCvar_NsfName = FindConVar("sm_competitive_nsf_name");
-    if (g_hCvar_JinraiName == null || g_hCvar_NsfName == null)
-    {
-        SetFailState("Failed to look up nt_competitive team name cvars. Is nt_competitive plugin enabled?");
-    }
 
     g_hCvar_KidPrintToPanel = FindConVar("kid_printtopanel");
     if (g_hCvar_KidPrintToPanel != null)
@@ -717,10 +713,17 @@ public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int sele
         int client_team = GetClientTeam(client);
         if (client_team == GetPickingTeam())
         {
-            char jinrai_name[MAX_CUSTOM_TEAM_NAME_LEN];
-            char nsf_name[MAX_CUSTOM_TEAM_NAME_LEN];
-            g_hCvar_JinraiName.GetString(jinrai_name, sizeof(jinrai_name));
-            g_hCvar_NsfName.GetString(nsf_name, sizeof(nsf_name));
+            char jinrai_name[MAX_CUSTOM_TEAM_NAME_LEN] = "Jinrai";
+            char nsf_name[MAX_CUSTOM_TEAM_NAME_LEN] = "NSF";
+
+            if (g_hCvar_JinraiName != null)
+            {
+                g_hCvar_JinraiName.GetString(jinrai_name, sizeof(jinrai_name));
+            }
+            if (g_hCvar_NsfName != null)
+            {
+                g_hCvar_NsfName.GetString(nsf_name, sizeof(nsf_name));
+            }
 
             char chosen_map[PLATFORM_MAX_PATH];
             if (!menu.GetItem(selection, chosen_map, sizeof(chosen_map)))
@@ -1102,9 +1105,15 @@ void GetCompetitiveTeamName(const int team, char[] out_name, const int max_len)
         ThrowError("Unexpected team index: %d", team);
     }
 
-    GetConVarString((team == TEAM_JINRAI) ? g_hCvar_JinraiName : g_hCvar_NsfName, out_name, max_len);
-
-    if (strlen(out_name) == 0)
+    if (g_hCvar_JinraiName != null && g_hCvar_NsfName != null)
+    {
+        GetConVarString((team == TEAM_JINRAI) ? g_hCvar_JinraiName : g_hCvar_NsfName, out_name, max_len);
+        if (strlen(out_name) == 0)
+        {
+            strcopy(out_name, max_len, (team == TEAM_JINRAI) ? "Jinrai" : "NSF");
+        }
+    }
+    else
     {
         strcopy(out_name, max_len, (team == TEAM_JINRAI) ? "Jinrai" : "NSF");
     }
