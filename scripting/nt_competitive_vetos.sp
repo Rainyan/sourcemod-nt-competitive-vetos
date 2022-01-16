@@ -9,7 +9,7 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "1.2.0"
+#define PLUGIN_VERSION "1.2.1"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -505,7 +505,7 @@ void DoVeto()
     {
         ThrowError("Invalid veto stage (%d)", _veto_stage);
     }
-    else if (GetVetoStage() == VETO_STAGE_COIN_FLIP)
+    else if (GetVetoStage() == VETO_STAGE_COIN_FLIP_RESULT)
     {
         SetVetoStage(VETO_STAGE_FIRST_TEAM_BAN);
 
