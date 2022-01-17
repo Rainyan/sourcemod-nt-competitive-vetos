@@ -9,7 +9,7 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "1.2.3"
+#define PLUGIN_VERSION "1.2.4"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -691,11 +691,10 @@ don't exist on this server!", g_sTag);
 
 public Action Timer_CoinFlip(Handle timer, int coinflip_stage)
 {
-    if (!IsVetoActive() || ResetPicksIfShould())
+    if (IsVetoActive() && !ResetPicksIfShould())
     {
-        return Plugin_Stop;
+        DoCoinFlip(coinflip_stage);
     }
-    DoCoinFlip(coinflip_stage);
     return Plugin_Stop;
 }
 
