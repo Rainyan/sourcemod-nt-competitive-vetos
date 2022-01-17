@@ -9,7 +9,7 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "1.2.1"
+#define PLUGIN_VERSION "1.2.2"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -710,8 +710,8 @@ public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int sele
         delete menu;
         return 0;
     }
+    // Else, (action == MenuAction_Select), because those are the only two actions we receive here
 
-    // action == MenuAction_Select
     bool veto_was_cancelled = ResetPicksIfShould();
 
     if (!veto_was_cancelled && client > 0 && client <= MaxClients &&
@@ -720,14 +720,10 @@ public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int sele
         int client_team = GetClientTeam(client);
         if (client_team == GetPickingTeam())
         {
-            char jinrai_name[MAX_CUSTOM_TEAM_NAME_LEN] = "Jinrai";
-            char nsf_name[MAX_CUSTOM_TEAM_NAME_LEN] = "NSF";
-
-            if (CompPluginIsLoaded())
-            {
-                g_hCvar_JinraiName.GetString(jinrai_name, sizeof(jinrai_name));
-                g_hCvar_NsfName.GetString(nsf_name, sizeof(nsf_name));
-            }
+            char jinrai_name[MAX_CUSTOM_TEAM_NAME_LEN];
+            char nsf_name[MAX_CUSTOM_TEAM_NAME_LEN];
+            GetCompetitiveTeamName(TEAM_JINRAI, jinrai_name, sizeof(jinrai_name));
+            GetCompetitiveTeamName(TEAM_NSF, nsf_name, sizeof(nsf_name));
 
             char chosen_map[PLATFORM_MAX_PATH];
             if (!menu.GetItem(selection, chosen_map, sizeof(chosen_map)))
