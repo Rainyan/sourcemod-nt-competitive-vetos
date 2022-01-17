@@ -884,9 +884,9 @@ public void VoteHandler_ConfirmSoloMapPick(Menu menu, int num_votes, int num_cli
             ThrowError("Unexpected veto stage: %d", GetVetoStage());
         }
 
-        PrintToTeam(voting_team, "%s Your team %sd map %s (%d%s \"yes\" votes of %d votes total).",
+        PrintToTeam(voting_team, "%s Your team %sed map %s (%d%s \"yes\" votes of %d votes total).",
             (GetVetoStage() == VETO_STAGE_FIRST_TEAM_BAN || GetVetoStage() == VETO_STAGE_SECOND_TEAM_BAN) ? "[VETO]" : "[PICK]",
-            (GetVetoStage() == VETO_STAGE_FIRST_TEAM_BAN || GetVetoStage() == VETO_STAGE_SECOND_TEAM_BAN) ? "vetoe" : "picke",
+            (GetVetoStage() == VETO_STAGE_FIRST_TEAM_BAN || GetVetoStage() == VETO_STAGE_SECOND_TEAM_BAN) ? "veto" : "pick",
             _pending_map_pick_nomination_for_vote,
             (num_yes_votes == 0) ? 100 : ((1 - (num_no_votes / num_yes_votes)) * 100),
             "%%",
