@@ -17,49 +17,45 @@ details, scroll down to the bottom of this file):
 ===========================================
 OnAllPluginsLoaded() output of this plugin:
 ===========================================
-Map 0: "nt_ballistrade_ctg"
-Map 1: "nt_shipment_ctg_comp_rc1"
-Map 2: "nt_snowfall_ctg_b3"
-Map 3: "nt_oliostain_ctg_b3"
-Map 4: "nt_rise_ctg"
-Map 5: "nt_threadplate_ctg"
-Map 6: "nt_turmuk_ctg_beta3"
+  Veto is not currently active
+  Map 0: "nt_ballistrade_ctg"
+  Map 1: "nt_bullet_tdm"
+  Map 2: "nt_dawn_ctg"
+  Map 3: "nt_decom_ctg"
+  Map 4: "nt_disengage_ctg"
+  Map 5: "nt_dusk_ctg"
+  Map 6: "nt_engage_ctg"
+  Map 7: "nt_ghost_ctg"
+  Map 8: "nt_isolation_ctg"
 
 ================================================================
 Forwards output of this plugin, and the matching veto event log:
 ================================================================
 
-OnMapVetoStageUpdate: 1 (VETO_STAGE_COIN_FLIP) ---> [MAP PICK] Flipping coin... Team NSF vetoes first.
-
-OnMapVetoStageUpdate: 2 (VETO_STAGE_FIRST_TEAM_BAN)
-OnMapVetoPick: 2, 3, 0 (VETO_STAGE_FIRST_TEAM_BAN, TEAM_NSF, map index 0) ---> [VETO] Team NSF vetoes map: nt_ballistrade_ctg
-
-OnMapVetoStageUpdate: 3 (VETO_STAGE_SECOND_TEAM_BAN)
-OnMapVetoPick: 3, 2, 1 (VETO_STAGE_SECOND_TEAM_BAN, TEAM_JINRAI, map index 1) ---> [VETO] Team Jinrai vetoes map: nt_shipment_ctg_comp_rc1
-
-OnMapVetoStageUpdate: 4 (VETO_STAGE_SECOND_TEAM_PICK)
-OnMapVetoPick: 4, 2, 3 (VETO_STAGE_SECOND_TEAM_PICK, TEAM_JINRAI, map index 3) ---> [PICK] Team Jinrai picks map: nt_oliostain_ctg_b3
-
-OnMapVetoStageUpdate: 5 (VETO_STAGE_FIRST_TEAM_PICK)
-OnMapVetoPick: 5, 3, 6 (VETO_STAGE_FIRST_TEAM_PICK, TEAM_NSF, map index 6) ---> [PICK] Team NSF picks map: nt_turmuk_ctg_beta3
-
-OnMapVetoStageUpdate: 6 (VETO_STAGE_RANDOM_THIRD_MAP)
-OnMapVetoPick: 6, 1, 4 (VETO_STAGE_RANDOM_THIRD_MAP, TEAM_SPECTATOR, map index 4) ---> [PICK] Third map is: nt_rise_ctg
+  OnMapVetoStageUpdate: 1 (param 2: -1) // VETO_STAGE_COIN_FLIP -- Flipping coin...
+  OnMapVetoStageUpdate: 7 (param 2: 3) // VETO_STAGE_COIN_FLIP_RESULT -- Coin flip result
+  Coin flip result: team 3 vetoes first // 3 == NSF
+  OnMapVetoPick: 2, 3, "nt_dawn_ctg"
+  OnMapVetoStageUpdate: 2 (param 2: -1) // VETO_STAGE_FIRST_TEAM_BAN
+  OnMapVetoPick: 3, 2, "nt_disengage_ctg"
+  OnMapVetoStageUpdate: 3 (param 2: -1) // VETO_STAGE_SECOND_TEAM_BAN
+  OnMapVetoPick: 4, 2, "nt_bullet_tdm"
+  OnMapVetoStageUpdate: 4 (param 2: -1) // VETO_STAGE_SECOND_TEAM_PICK
+  OnMapVetoPick: 5, 3, "nt_ballistrade_ctg"
+  OnMapVetoStageUpdate: 5 (param 2: -1) // VETO_STAGE_FIRST_TEAM_PICK
+  OnMapVetoPick: 6, 1, "nt_decom_ctg"
+  OnMapVetoStageUpdate: 6 (param 2: -1) // VETO_STAGE_RANDOM_THIRD_MAP
+  OnMapVetoStageUpdate: 0 (param 2: -1) // VETO_STAGE_INACTIVE -- Veto is no longer active.
 
 ======================
 And final veto output:
 ======================
 
 == MAP PICK RESULTS ==
-  - Map 1: nt_oliostain_ctg_b3 (NSF pick)
-  - Map 2: nt_turmuk_ctg_beta3 (Jinrai pick)
-  - Map 3: nt_rise_ctg (random pick)
+  - Map 1: nt_bullet_tdm (NSF pick)
+  - Map 2: nt_ballistrade_ctg (Jinrai pick)
+  - Map 3: nt_decom_ctg (random pick)
 
-=========================================
-After which the veto goes inactive again:
-=========================================
-
-OnMapVetoStageUpdate: 0 (VETO_STAGE_INACTIVE)
 */
 
 public void OnAllPluginsLoaded()
