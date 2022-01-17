@@ -13,6 +13,12 @@
 /**
  * Whether a veto is currently in progress.
  *
+ * @param1 first_veto_team    Out value will be passed into this optional param by reference.
+ *                            The value can be one of:
+ *                                If this native returns true:
+ *                                    The value passed will be the team index of the coin flip winner (TEAM_JINRAI or TEAM_NSF), or 0 if the coin flip hasn't finished yet.
+ *                                Else, if this native returns false:
+ *                                    The value passed will hold no information.
  * @return                    True if veto is currently active, false otherwise.
  */
 native bool CompetitiveVetos_IsVetoActive(int& first_veto_team = 0);
