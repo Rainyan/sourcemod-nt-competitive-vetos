@@ -9,7 +9,7 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "1.2.2"
+#define PLUGIN_VERSION "1.2.3"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -537,10 +537,12 @@ void DoVeto()
     int veto_pool_size = GetMaps(dp_maps, all_maps_exist_on_server);
     if (veto_pool_size == -1)
     {
+        delete dp_maps;
         ThrowError("Failed to get maps");
     }
     else if (veto_pool_size < 5)
     {
+        delete dp_maps;
         ThrowError("Need at least 5 maps on veto pool (got %d)", veto_pool_size);
     }
     else if (!all_maps_exist_on_server &&
@@ -597,6 +599,7 @@ don't exist on this server!", g_sTag);
 
     if (picking_team != TEAM_JINRAI && picking_team != TEAM_NSF)
     {
+        delete dp_maps;
         ThrowError("Invalid picking team: %d", picking_team);
     }
 
