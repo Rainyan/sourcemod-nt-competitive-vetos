@@ -3,7 +3,7 @@ A SourceMod plugin for Neotokyo that introduces a map veto system for competitiv
 
 ## Compile requirements
 ### SourceMod version
-* 1.7 or newer
+* 1.7.3 or newer
 ### Includes
 * [SourceMod Neotokyo include](https://github.com/softashell/sourcemod-nt-include)
 * [nt_competitive_vetos_enum include](scripting/include/nt_competitive_vetos_enum.inc)
