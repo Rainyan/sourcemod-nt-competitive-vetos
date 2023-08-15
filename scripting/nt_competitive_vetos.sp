@@ -27,10 +27,10 @@ static char g_sSound_Pick[] = "ui/buttonclick.wav";
 static char g_sSound_Results[] = "player/CPcaptured.wav";
 
 // Debug flag for doing funky testing stuff. Don't enable for regular use.
-#define DEBUG
+//#define DEBUG
 
 // Debug flag to simulate a random fake veto process. Don't enable for regular use.
-#define DEBUG_FAKE_VETOS
+//#define DEBUG_FAKE_VETOS
 #if defined(DEBUG_FAKE_VETOS)
 // How long to wait between fake veto stages
 #define DEBUG_FAKE_VETOS_TIMER 5.0
