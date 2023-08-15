@@ -9,7 +9,7 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "1.2.6"
+#define PLUGIN_VERSION "1.2.7"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -893,12 +893,16 @@ public void VoteHandler_ConfirmSoloMapPick(Menu menu, int num_votes, int num_cli
             ThrowError("Unexpected veto stage: %d", GetVetoStage());
         }
 
-        PrintToTeam(voting_team, "%s Your team %sed map %s (%d%s \"yes\" votes of %d votes total).",
+        PrintToTeam(voting_team,
+            "%s Your team %sed map %s (%d%s \"yes\" votes of %d votes total).",
             (GetVetoStage() == VETO_STAGE_FIRST_TEAM_BAN || GetVetoStage() == VETO_STAGE_SECOND_TEAM_BAN) ? "[VETO]" : "[PICK]",
             (GetVetoStage() == VETO_STAGE_FIRST_TEAM_BAN || GetVetoStage() == VETO_STAGE_SECOND_TEAM_BAN) ? "veto" : "pick",
             _pending_map_pick_nomination_for_vote,
             (num_yes_votes == 0) ? 100 : ((1 - (num_no_votes / num_yes_votes)) * 100),
-            "%%",
+            "％", // HACK: this is the Unicode full-width percentage symbol; I've no idea why the regular "%" sign formatting doesn't work here.
+                  // The "%" displays correctly for client console but disappears in chat, and "%%" displays correctly for chat but doubly in console.
+                  // Since using the word "percentage" here stretches the chat line over the line break boundary & makes the output look messy,
+                  // I'm just using the Unicode here since it should be supported by nearly all systems.
             num_votes);
 
         SetVetoStage(view_as<VetoStage>(view_as<int>(GetVetoStage()) + 1));
@@ -907,9 +911,9 @@ public void VoteHandler_ConfirmSoloMapPick(Menu menu, int num_votes, int num_cli
     {
         PrintToTeam(voting_team, "%s Need at least 50%s of \"yes\" votes (got %d%s).",
             g_sTag,
-            "%%",
+            "%",
             (num_no_votes == 0) ? 0 : (num_yes_votes / num_no_votes),
-            "%%");
+            "%");
     }
 
     strcopy(_pending_map_pick_nomination_for_vote,
@@ -1011,8 +1015,8 @@ void PrintToTeam(int team, const char[] message, any ...)
         {
             continue;
         }
-        PrintToChat(client, formatMsg);
-        PrintToConsole(client, formatMsg);
+        PrintToChat(client, "%s", formatMsg);
+        PrintToConsole(client, "%s", formatMsg);
     }
 }
 
@@ -1036,8 +1040,8 @@ void PrintToAllExceptTeam(int team, const char[] message, any ...)
         {
             continue;
         }
-        PrintToChat(client, formatMsg);
-        PrintToConsole(client, formatMsg);
+        PrintToChat(client, "%s", formatMsg);
+        PrintToConsole(client, "%s", formatMsg);
     }
 }
 
