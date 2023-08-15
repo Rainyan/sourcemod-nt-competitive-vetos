@@ -385,8 +385,7 @@ public Action Cmd_AdminForceVeto(int client, int argc)
 
 int GetRandomPlayerTeam()
 {
-    int lowest_player_team_index = TEAM_JINRAI;
-    return GetURandomInt() % 2 + lowest_player_team_index;
+    return GetURandomInt() % 2 == 0 ? TEAM_JINRAI : TEAM_NSF;
 }
 
 bool CheckIfReadyToStartVeto()
