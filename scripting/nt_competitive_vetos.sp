@@ -9,7 +9,7 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "1.2.7"
+#define PLUGIN_VERSION "1.3.0"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -383,6 +383,11 @@ public Action Cmd_AdminForceVeto(int client, int argc)
     return Plugin_Handled;
 }
 
+int GetRandomPlayerTeam()
+{
+    return GetURandomInt() % 2 == 0 ? TEAM_JINRAI : TEAM_NSF;
+}
+
 bool CheckIfReadyToStartVeto()
 {
     if (IsVetoActive() || !_wants_to_start_veto_jinrai || !_wants_to_start_veto_nsf)
@@ -451,8 +456,7 @@ void DoCoinFlip(const int coinflip_stage = 0)
 #if defined DEBUG_ALL_VETOS_BY_JINRAI
         _first_veto_team = TEAM_JINRAI;
 #else
-        SetRandomSeed(GetTime());
-        _first_veto_team = GetRandomInt(TEAM_JINRAI, TEAM_NSF);
+        _first_veto_team = GetRandomPlayerTeam();
 #endif
         char team_name[MAX_CUSTOM_TEAM_NAME_LEN];
         GetCompetitiveTeamName(_first_veto_team, team_name, sizeof(team_name));
@@ -578,8 +582,7 @@ don't exist on this server!", g_sTag);
             ThrowError("No maps left to choose from");
         }
 
-        SetRandomSeed(GetTime());
-        int third_map_index = GetRandomInt(0, num_remaining_maps - 1);
+        int third_map_index = GetURandomInt() % num_remaining_maps;
 
         dp_unchosen_maps.Reset();
         for (int i = 0; i < third_map_index; ++i)
@@ -806,7 +809,8 @@ void ConfirmSoloMapPick(int client, int team, const char[] map_name)
     vote_menu.DisplayVote(voters, num_voters, MENU_TIME_FOREVER);
 }
 
-public int MenuHandler_ConfirmSoloMapPick(Menu menu, MenuAction action, int param1, int param2)
+public int MenuHandler_ConfirmSoloMapPick(Menu menu, MenuAction action,
+    int param1, int param2)
 {
     if (action == MenuAction_End)
     {
@@ -1475,8 +1479,7 @@ public Action Cmd_AdminDebug_FakeVeto(int client, int argc)
 
 public Action Timer_FakeCoinFlip(Handle timer)
 {
-    SetRandomSeed(GetTime());
-    _first_veto_team = GetRandomInt(TEAM_JINRAI, TEAM_NSF);
+    _first_veto_team = GetRandomPlayerTeam();
 
     Call_StartForward(g_hForwardVetoStageUpdate);
     Call_PushCell(VETO_STAGE_COIN_FLIP_RESULT);
@@ -1489,8 +1492,7 @@ public Action Timer_FakeCoinFlip(Handle timer)
 
 public Action Timer_FakeFirstVeto(Handle timer)
 {
-    SetRandomSeed(GetURandomInt());
-    int map = GetRandomInt(0, NUM_RANDOM_MAPS - 1);
+    int map = GetURandomInt() % NUM_RANDOM_MAPS;
     _is_random_map_picked[map] = true;
 
     if (_first_veto_team == TEAM_JINRAI)
@@ -1522,8 +1524,7 @@ public Action Timer_FakeSecondVeto(Handle timer)
     int map;
     do
     {
-        SetRandomSeed(GetURandomInt());
-        map = GetRandomInt(0, NUM_RANDOM_MAPS - 1);
+        map = GetURandomInt() % NUM_RANDOM_MAPS;
     }
     while (_is_random_map_picked[map]);
     _is_random_map_picked[map] = true;
@@ -1557,8 +1558,7 @@ public Action Timer_FakeSecondPick(Handle timer, DataPack picked_maps)
     int map;
     do
     {
-        SetRandomSeed(GetURandomInt());
-        map = GetRandomInt(0, NUM_RANDOM_MAPS - 1);
+        map = GetURandomInt() % NUM_RANDOM_MAPS;
     }
     while (_is_random_map_picked[map]);
     _is_random_map_picked[map] = true;
@@ -1592,8 +1592,7 @@ public Action Timer_FakeFirstPick(Handle timer)
     int map;
     do
     {
-        SetRandomSeed(GetURandomInt());
-        map = GetRandomInt(0, NUM_RANDOM_MAPS - 1);
+        map = GetURandomInt() % NUM_RANDOM_MAPS;
     }
     while (_is_random_map_picked[map]);
     _is_random_map_picked[map] = true;
@@ -1627,8 +1626,7 @@ public Action Timer_RandomThirdPick(Handle timer, DataPack picked_maps)
     int map;
     do
     {
-        SetRandomSeed(GetURandomInt());
-        map = GetRandomInt(0, NUM_RANDOM_MAPS - 1);
+        map = GetURandomInt() % NUM_RANDOM_MAPS;
     }
     while (_is_random_map_picked[map]);
     _is_random_map_picked[map] = true;
