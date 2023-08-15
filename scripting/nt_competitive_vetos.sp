@@ -712,14 +712,14 @@ public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int sele
         delete menu;
         return 0;
     }
-	else if (action == MenuAction_Cancel)
-	{
-		return 0;
-	}
-	else if (action != MenuAction_Select)
-	{
-		ThrowError("Unexpected MenuAction %d", action);
-	}
+    else if (action == MenuAction_Cancel)
+    {
+        return 0;
+    }
+    else if (action != MenuAction_Select)
+    {
+        ThrowError("Unexpected MenuAction %d", action);
+    }
     // MenuAction_Select
 
     bool veto_was_cancelled = ResetPicksIfShould();
@@ -739,11 +739,10 @@ public int MenuHandler_DoPick(Menu menu, MenuAction action, int client, int sele
             if (!menu.GetItem(selection, chosen_map, sizeof(chosen_map)))
             {
                 ThrowError("GetItem failed");
-                return 0;
             }
             else if (StrEqual(chosen_map, ITEM_DISABLED_STR))
             {
-                ThrowError("Client chose disabled str from menu (%d)", selection);
+                ThrowError("Client chose a disabled str from menu (%d)", selection);
             }
 
             ConfirmSoloMapPick(client, client_team, chosen_map);
