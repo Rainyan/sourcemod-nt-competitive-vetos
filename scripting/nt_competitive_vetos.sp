@@ -9,7 +9,7 @@
 
 #include <nt_competitive_vetos_enum>
 
-#define PLUGIN_VERSION "1.3.0"
+#define PLUGIN_VERSION "1.3.1"
 
 #define NEO_MAX_PLAYERS 32
 #define MAX_CUSTOM_TEAM_NAME_LEN 64
@@ -20,6 +20,8 @@
 
 Handle g_hForwardVetoStageUpdate = INVALID_HANDLE;
 Handle g_hForwardVetoPick = INVALID_HANDLE;
+
+Menu g_voteMenu = null;
 
 static char g_sTag[] = "[MAP PICK]";
 static char g_sSound_Veto[] = "ui/buttonrollover.wav";
@@ -771,6 +773,11 @@ void ConfirmSoloMapPick(int client, int team, const char[] map_name)
         sizeof(_pending_map_pick_nomination_for_vote), map_name);
 
     Menu vote_menu = new Menu(MenuHandler_ConfirmSoloMapPick, MenuAction_End);
+    if (!vote_menu)
+    {
+        ThrowError("Failed to create Menu");
+    }
+
     vote_menu.ExitButton = false;
     vote_menu.VoteResultCallback = VoteHandler_ConfirmSoloMapPick;
 
@@ -807,6 +814,11 @@ void ConfirmSoloMapPick(int client, int team, const char[] map_name)
         PrintToChatAll("%s Cancelling existing vote because veto voting is currently active.", g_sTag);
     }
     vote_menu.DisplayVote(voters, num_voters, MENU_TIME_FOREVER);
+    if (g_voteMenu != null)
+    {
+        delete g_voteMenu;
+    }
+    g_voteMenu = vote_menu;
 }
 
 public int MenuHandler_ConfirmSoloMapPick(Menu menu, MenuAction action,
@@ -814,7 +826,10 @@ public int MenuHandler_ConfirmSoloMapPick(Menu menu, MenuAction action,
 {
     if (action == MenuAction_End)
     {
-        delete menu;
+        if (g_voteMenu == menu && menu != null)
+        {
+            delete g_voteMenu;
+        }
     }
     return 0;
 }
