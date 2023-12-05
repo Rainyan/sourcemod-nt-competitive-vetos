@@ -54,5 +54,5 @@ char g_sSound_Results[] = "player/CPcaptured.wav";
 enum struct MapChoice {
     int team;
     char map[PLATFORM_MAX_PATH];
-    VetoStage stage;
+    VetoStage_v2 stage;
 }

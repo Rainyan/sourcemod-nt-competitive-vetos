@@ -88,7 +88,7 @@ void ConfirmSoloMapPick(int client, int team, const char[] map_name)
     vote_menu.ExitButton = false;
     vote_menu.VoteResultCallback = VoteHandler_ConfirmSoloMapPick;
 
-    VetoStage stage = GetCurrentVetoStage();
+    VetoStage_v2 stage = GetCurrentVetoStage();
 
     bool is_ban_stage = (stage == VETO_A || stage == VETO_B);
 
@@ -186,7 +186,7 @@ public void VoteHandler_ConfirmSoloMapPick(Menu menu, int num_votes, int num_cli
 
     if (num_yes_votes >= num_no_votes)
     {
-        VetoStage stage = GetCurrentVetoStage();
+        VetoStage_v2 stage = GetCurrentVetoStage();
 
         char jinrai_name[MAX_CUSTOM_TEAM_NAME_LEN];
         char nsf_name[MAX_CUSTOM_TEAM_NAME_LEN];

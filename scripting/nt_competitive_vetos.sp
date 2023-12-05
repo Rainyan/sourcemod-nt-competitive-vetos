@@ -227,7 +227,7 @@ public Action Cmd_DebugPattern(int client, int argc)
     char description[27 + 1];
     for (int i = 0; i < sizeof(pattern) && pattern[i] != '\0'; ++i)
     {
-        VetoStage s;
+        VetoStage_v2 s;
         if (!GetVetoStage(pattern[i], s))
         {
             ThrowError("Failed to get VetoStage for '%c'", pattern[i]);
@@ -291,20 +291,20 @@ void ClearVeto()
 
 // For a character, passes its corresponding VetoStage by reference.
 // Returns true for a valid VetoStage character, false otherwise.
-bool GetVetoStage(char c, VetoStage& stage)
+bool GetVetoStage(char c, VetoStage_v2& stage)
 {
     int index = FindCharInString(_chars, c);
     if (index == -1)
     {
         return false;
     }
-    stage = view_as<VetoStage>(index);
+    stage = view_as<VetoStage_v2>(index);
     return true;
 }
 
 // Passes a description of a VetoStage by reference.
 // Returns the number of characters copied.
-int GetVetoStageDescription(VetoStage s, char[] description, int maxlen)
+int GetVetoStageDescription(VetoStage_v2 s, char[] description, int maxlen)
 {
     char descriptions[VETOSTAGE_ENUM_COUNT][] = {
         "Choose team A with coinflip",
@@ -364,7 +364,7 @@ bool IsVetoPatternValid(const char[] pattern, int pattern_size,
         number_chars = 0;
         strcopy(number, pattern_size, "");
 
-        VetoStage s;
+        VetoStage_v2 s;
         if (!GetVetoStage(pattern[i], s))
         {
             first_error_index = i;
@@ -496,7 +496,7 @@ void BuildVeto(const char[] pattern, int pattern_size, DataPack veto)
     ClearVeto();
     for (int i = 0; i < pattern_size && pattern[i] != '\0'; ++i)
     {
-        VetoStage s;
+        VetoStage_v2 s;
         if (!GetVetoStage(pattern[i], s))
         {
             ThrowError("Failed to get VetoStage for i %d from \"%s\" \
@@ -798,7 +798,7 @@ void CoinFlip()
     delete panel;
 }
 
-bool IsVeto(VetoStage s)
+bool IsVeto(VetoStage_v2 s)
 {
     return s == VETO_A || s == VETO_B || s ==  VETO_RANDOM;
 }
@@ -981,9 +981,9 @@ don't exist on this server!", g_sTag);
     delete spec_panel;
 }
 
-VetoStage GetCurrentVetoStage()
+VetoStage_v2 GetCurrentVetoStage()
 {
-    VetoStage s;
+    VetoStage_v2 s;
     if (!GetVetoStage(_chars[_char_pos], s))
     {
         ThrowError("Failed to get VetoStage for '%c'", _chars[_char_pos]);
@@ -1021,7 +1021,7 @@ stock int GetOpposingTeam(int team)
 
 int GetPickingTeam()
 {
-    VetoStage stage = GetCurrentVetoStage();
+    VetoStage_v2 stage = GetCurrentVetoStage();
     if (stage == VETO_A || stage == PICK_A)
     {
         return _team_a;
@@ -1272,7 +1272,7 @@ void SetMapVetoPick(int team, const char[] pick)
         LogError("Map doesn't exist on the server: \"%s\"", pick);
     }
 
-    VetoStage stage = GetCurrentVetoStage();
+    VetoStage_v2 stage = GetCurrentVetoStage();
 
     char team_name[MAX_CUSTOM_TEAM_NAME_LEN] = "Random";
     if (team == TEAM_JINRAI || team == TEAM_NSF)

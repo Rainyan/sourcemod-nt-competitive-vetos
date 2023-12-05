@@ -6,7 +6,7 @@
 // "Team A" and "Team B" can be either Jinrai or NSF, and they may swap places
 // after consecutive coin flips.
 
-enum VetoStage {
+enum VetoStage_v2 {
     COINFLIP = 0,    // Flipping coin on who gets assigned as "Team A".
     VETO_A,          // Team A vetoes a map.
     VETO_B,          // Team B vetoes a map.
