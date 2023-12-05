@@ -1,7 +1,6 @@
 #if defined _NT_COMPETITIVE_VETOS_NATIVES_INC_
     #endinput
 #endif
-
 #define _NT_COMPETITIVE_VETOS_NATIVES_INC_
 
 // For the VetoStage enum, see the include file nt_competitive_vetos_enum.inc.

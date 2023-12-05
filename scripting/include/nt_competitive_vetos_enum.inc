@@ -1,34 +1,19 @@
 #if defined _NT_COMPETITIVE_VETOS_ENUM_INC_
     #endinput
 #endif
-
 #define _NT_COMPETITIVE_VETOS_ENUM_INC_
 
-// Do not shuffle these enum values here for better backwards compat!
-// Please note that "Team 1" and "Team 2" in the specific veto stage comments
-// below do not refer to any actual team indices; "Team 1" can be either TEAM_JINRAI
-// or TEAM_NSF, and "Team 2" will be whichever of the two "Team 1" isn't.
-// As such, the veto/pick order can be either one of:
-//   - Jinrai, NSF, NSF, Jinrai, random
-//   - NSF, Jinrai, Jinrai, NSF, random
+// "Team A" and "Team B" can be either Jinrai or NSF, and they may swap places
+// after consecutive coin flips.
+
 enum VetoStage {
-    VETO_STAGE_INACTIVE = 0,        // - Vetoing is not happening at all currently (or was finished)
+    COINFLIP = 0,    // Flipping coin on who gets assigned as "Team A".
+    VETO_A,          // Team A vetoes a map.
+    VETO_B,          // Team B vetoes a map.
+    VETO_RANDOM,     // A map is randomly vetoed.
+    PICK_A,          // Team A picks a map.
+    PICK_B,          // Team B picks a map.
+    PICK_RANDOM,     // A map is randomly picked.
 
-    VETO_STAGE_COIN_FLIP,           // - Doing a coin flip to decide who vetoes first
-
-    VETO_STAGE_FIRST_TEAM_BAN,      // - Currently deciding on the first veto (Team 1)
-
-    VETO_STAGE_SECOND_TEAM_BAN,     // - Currently deciding on the second veto (Team 2)
-
-    VETO_STAGE_SECOND_TEAM_PICK,    // - Currently deciding on the first pick (Team 2)
-
-    VETO_STAGE_FIRST_TEAM_PICK,     // - Currently deciding on the second pick (Team 1)
-
-    VETO_STAGE_RANDOM_THIRD_MAP,    // - Currently deciding on the third random map.
-                                    //   VETO_STAGE_RANDOM_THIRD_MAP will be followed
-                                    //   by VETO_STAGE_INACTIVE upon veto completion.
-
-    VETO_STAGE_COIN_FLIP_RESULT,    // Got a result for the coin flip.
-
-    NUM_STAGES                      // - Unused.
+    VETOSTAGE_ENUM_COUNT
 };
