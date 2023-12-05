@@ -55,10 +55,8 @@ native int CompetitiveVetos_GetNameOfMapPoolMap(int map_index, char[] out_buffer
  *************/
 
 /* Called whenever the veto state changes according to the enum above.
-*    public void OnMapVetoStageUpdate(VetoStage_v2 new_veto_stage, int param2);
+*    public void OnMapVetoStageUpdate_v2(VetoStage_v2 new_veto_stage, int param2);
 *      - new_veto_stage:          VetoStage_v2 enum that was entered when this forward fired.
-*      - param2:                  If (new_veto_stage == VETO_STAGE_COIN_FLIP_RESULT): Will contain the team index that vetoes first.
-                                  Else, this value will not represent any information, in which case it will hold the value -1.
 */
 
 /* public void OnMapVetoPick(VetoStage_v2 current_veto_stage, int vetoing_team, const char[] map_name);

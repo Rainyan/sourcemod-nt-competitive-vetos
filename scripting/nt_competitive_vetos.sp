@@ -149,7 +149,7 @@ public void OnPluginStart()
     RegConsoleCmd("sm_veto", Cmd_StartVeto, "Ready the team for map picks/vetos.");
     RegConsoleCmd("sm_unveto", Cmd_CancelVeto, "Unready the team for map picks/vetos.");
 
-    g_hForwardVetoStageUpdate = CreateGlobalForward("OnMapVetoStageUpdate", ET_Ignore, Param_Cell, Param_Cell);
+    g_hForwardVetoStageUpdate = CreateGlobalForward("OnMapVetoStageUpdate_v2", ET_Ignore, Param_Cell);
     g_hForwardVetoPick = CreateGlobalForward("OnMapVetoPick", ET_Ignore, Param_Cell, Param_Cell, Param_String);
 
     char pattern[STAGES_MAX + 1];
@@ -166,7 +166,7 @@ public void OnPluginStart()
 
     _results = new ArrayList(sizeof(MapChoice));
 
-    BuildVeto(pattern, sizeof(pattern), _veto);
+    BuildVeto(pattern, sizeof(pattern));
 
     RegAdminCmd("sm_vetos_debug_pattern", Cmd_DebugPattern, ADMFLAG_GENERIC);
 }
@@ -197,7 +197,7 @@ public void OnPatternChanged(ConVar convar, const char[] oldValue,
             error_index, error);
     }
 
-    BuildVeto(newValue, strlen(newValue) + 1, _veto);
+    BuildVeto(newValue, strlen(newValue) + 1);
 }
 
 public void OnMapStart()
@@ -276,6 +276,7 @@ public Action Cmd_AdminDebug_ReDisplayVeto(int client, int argc)
 
 void ClearVeto()
 {
+    delete _veto;
     _results.Clear();
 
     _team_a = DEFAULT_TEAM_A;
@@ -489,11 +490,10 @@ bool ProcessVetoStage(DataPack veto, any& result=0)
 // The passed in DataPack will be closed if it exists.
 // Passes a new DataPack by reference with its position reset.
 // Caller is responsible for the memory of the new DataPack.
-void BuildVeto(const char[] pattern, int pattern_size, DataPack veto)
+void BuildVeto(const char[] pattern, int pattern_size)
 {
-    delete veto;
-    veto = new DataPack();
     ClearVeto();
+    _veto = new DataPack();
     for (int i = 0; i < pattern_size && pattern[i] != '\0'; ++i)
     {
         VetoStage_v2 s;
@@ -504,9 +504,9 @@ from symbols \"%s\"",
                 i, pattern, _chars
             );
         }
-        veto.WriteFunction(_funcs[s]);
+        _veto.WriteFunction(_funcs[s]);
     }
-    veto.Reset();
+    _veto.Reset();
     _char_pos = 0;
 }
 
@@ -1003,9 +1003,18 @@ void DoVeto()
         return;
     }
 
-    any result;
-    if (!ProcessVetoStage(_veto, result))
+    if (ProcessVetoStage(_veto))
     {
+        Call_StartForward(g_hForwardVetoStageUpdate);
+        Call_PushCell(GetCurrentVetoStage());
+        Call_Finish();
+    }
+    else
+    {
+        if (_results.Length > 0)
+        {
+            AnnounceMaps();
+        }
         ClearVeto();
     }
 }
