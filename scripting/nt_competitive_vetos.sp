@@ -112,7 +112,21 @@ public void OnPluginStart()
 #endif
     InitVetoFunctionPtrs();
 
-    _pattern = CreateConVar("sm_vetos_pattern", "cvVrpPR"); // TODO: sensible default
+    VetoStage_v2 default_pattern[] = {
+        COINFLIP,
+        VETO_A,
+        VETO_B,
+        PICK_A,
+        PICK_B,
+        PICK_RANDOM
+    };
+    char default_pattern_buffer[sizeof(default_pattern)];
+    VetoStagesToString(default_pattern, sizeof(default_pattern), default_pattern_buffer);
+    if (!IsVetoPatternValid(default_pattern_buffer, sizeof(default_pattern_buffer)))
+    {
+        SetFailState("Default veto pattern is invalid: \"%s\"", default_pattern_buffer);
+    }
+    _pattern = CreateConVar("sm_vetos_pattern", default_pattern_buffer);
     _pattern.AddChangeHook(OnPatternChanged);
 
     CreateConVar("sm_nt_competitive_vetos_version", PLUGIN_VERSION, "NT Competitive Vetos plugin version.", FCVAR_DONTRECORD);
@@ -1202,4 +1216,15 @@ int GetNumMaps()
 bool CompPluginIsLoaded()
 {
     return g_hCvar_JinraiName != null;
+}
+
+// Create a veto pattern string from an array of veto stages.
+// Passes the pattern string by reference.
+// The out_string must be able to contain at least n_stages chars.
+void VetoStagesToString(const VetoStage_v2[] stages, int n_stages, char[] out_string)
+{
+    for (int n = 0; n < n_stages; ++n)
+    {
+        out_string[n] = _chars[stages[n]];
+    }
 }

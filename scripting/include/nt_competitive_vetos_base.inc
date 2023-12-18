@@ -43,7 +43,7 @@ bool _is_random_map_picked[NUM_RANDOM_MAPS];
 char _pending_map_pick_nomination_for_vote[PLATFORM_MAX_PATH];
 
 // One-char symbols that correspond to VetoStage options.
-char _chars[STAGES_MAX + 1] = "cvVrpPR";
+char _chars[VETOSTAGE_ENUM_COUNT] = "cvVrpPR";
 int _char_pos;
 int _num_pattern_maps_required;
 int _team_a = DEFAULT_TEAM_A;
