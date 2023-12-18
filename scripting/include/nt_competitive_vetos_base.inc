@@ -15,6 +15,7 @@
 #define ITEM_DISABLED_STR "null"
 // Versioning used for the veto.cfg format changes.
 #define VETOS_CFG_VERSION 1
+
 #define DEFAULT_TEAM_A TEAM_JINRAI
 #if DEFAULT_TEAM_A != TEAM_JINRAI && DEFAULT_TEAM_A != TEAM_NSF
 #error Unexpected default team
@@ -216,7 +217,9 @@ don't exist on this server!", g_sTag);
         ThrowError("Invalid picking team: %d", team);
     }
 
-    Menu picker_menu = new Menu(MenuHandler_DoPick, (MenuAction_Select | MenuAction_End));
+    Menu picker_menu = new Menu(MenuHandler_DoPick,
+        (MenuAction_Select | MenuAction_End)
+    );
     picker_menu.ExitButton = false;
 
     Panel spec_panel = new Panel();
@@ -305,8 +308,8 @@ void BuildVeto(const char[] pattern, int pattern_size)
         VetoStage_v2 s;
         if (!GetVetoStage(pattern[i], s))
         {
-            ThrowError("Failed to get VetoStage for i %d from \"%s\" \
-from symbols \"%s\"",
+            ThrowError("Failed to get VetoStage for i=%d from \"%s\"; \
+expected symbols list: \"%s\"",
                 i, pattern, _chars
             );
         }
