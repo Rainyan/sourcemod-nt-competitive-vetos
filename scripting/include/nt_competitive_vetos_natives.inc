@@ -1,7 +1,6 @@
 #if defined _NT_COMPETITIVE_VETOS_NATIVES_INC_
     #endinput
 #endif
-
 #define _NT_COMPETITIVE_VETOS_NATIVES_INC_
 
 // For the VetoStage enum, see the include file nt_competitive_vetos_enum.inc.
@@ -13,15 +12,16 @@
 /**
  * Whether a veto is currently in progress.
  *
- * @param1 first_veto_team    Out value will be passed into this optional param by reference.
+ * @param1 team_a             Out value will be passed into this optional param by reference.
  *                            The value can be one of:
- *                                If this native returns true:
- *                                    The value passed will be the team index of the coin flip winner (TEAM_JINRAI or TEAM_NSF), or 0 if the coin flip hasn't finished yet.
- *                                Else, if this native returns false:
- *                                    The value passed will hold no information.
+ *                            If this native returns true:
+ *                                 The value passed will be the team index of the most recent coin flip winner
+ *                                 (TEAM_JINRAI or TEAM_NSF), or 0 if the coin flip hasn't finished yet.
+ *                            Else, if this native returns false:
+ *                                The value passed will hold no information.
  * @return                    True if veto is currently active, false otherwise.
  */
-native bool CompetitiveVetos_IsVetoActive(int& first_veto_team = 0);
+native bool CompetitiveVetos_IsVetoActive(int& team_a = 0);
 
 /**
  * Returns the number of maps in the current competitive veto/picks map pool.
@@ -55,15 +55,13 @@ native int CompetitiveVetos_GetNameOfMapPoolMap(int map_index, char[] out_buffer
  *************/
 
 /* Called whenever the veto state changes according to the enum above.
-*    public void OnMapVetoStageUpdate(VetoStage new_veto_stage, int param2);
-*      - new_veto_stage:          VetoStage enum that was entered when this forward fired.
-*      - param2:                  If (new_veto_stage == VETO_STAGE_COIN_FLIP_RESULT): Will contain the team index that vetoes first.
-                                  Else, this value will not represent any information, in which case it will hold the value -1.
+*    public void OnMapVetoStageUpdate_v2(VetoStage_v2 new_veto_stage, int param2);
+*      - new_veto_stage:          VetoStage_v2 enum that was entered when this forward fired.
 */
 
-/* public void OnMapVetoPick(VetoStage current_veto_stage, int vetoing_team, const char[] map_name);
+/* public void OnMapVetoPick(VetoStage_v2 current_veto_stage, int vetoing_team, const char[] map_name);
 *    Called whenever a team decides on one of their pick/ban.
-*      - current_veto_stage:      VetoStage enum for determining what kind of pick this was.
+*      - current_veto_stage:      VetoStage_v2 enum for determining what kind of pick this was.
 *
 *      - vetoing_team:            Which team did this pick.
 *                                 TEAM_JINRAI or TEAM_NSF (or TEAM_SPECTATOR for the random pick),
