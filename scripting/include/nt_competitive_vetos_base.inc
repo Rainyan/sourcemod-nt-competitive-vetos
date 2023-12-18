@@ -76,43 +76,42 @@ void InitVetoFunctionPtrs()
     _funcs[PICK_RANDOM] = PickMap_Random;
 }
 
-// TODO: encapsulate these functions into static includes as appropriate
-void VetoMap_A()
+static void VetoMap_A()
 {
     ChooseMap(GetTeamA(), true);
 }
 
-void VetoMap_B()
+static void VetoMap_B()
 {
     ChooseMap(GetTeamB(), true);
 }
 
-void VetoMap_Random()
+static void VetoMap_Random()
 {
     ChooseMap(TEAM_NONE, true);
 }
 
-int GetTeamA()
+static int GetTeamA()
 {
     return _team_a;
 }
 
-int GetTeamB()
+static int GetTeamB()
 {
     return GetOtherTeam(GetTeamA());
 }
 
-void PickMap_A()
+static void PickMap_A()
 {
     ChooseMap(GetTeamA(), false);
 }
 
-void PickMap_B()
+static void PickMap_B()
 {
     ChooseMap(GetTeamB(), false);
 }
 
-void PickMap_Random()
+static void PickMap_Random()
 {
     ChooseMap(TEAM_NONE, false);
 }
@@ -297,9 +296,6 @@ don't exist on this server!", g_sTag);
 
 // Assumes valid pattern; it's up to the caller to verify validity with
 // IsVetoPatternValid before calling this!
-// The passed in DataPack will be closed if it exists.
-// Passes a new DataPack by reference with its position reset.
-// Caller is responsible for the memory of the new DataPack.
 void BuildVeto(const char[] pattern, int pattern_size)
 {
     ClearVeto();
