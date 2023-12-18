@@ -8,7 +8,6 @@
 
 #include <nt_competitive_vetos_base>
 #include <nt_competitive_vetos_enum>
-#include <nt_competitive_vetos_impl>
 #include <nt_competitive_vetos_menus>
 #include <nt_competitive_vetos_timers>
 
