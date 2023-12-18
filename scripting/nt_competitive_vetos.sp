@@ -131,8 +131,6 @@ public void OnPluginStart()
 
     CreateConVar("sm_nt_competitive_vetos_version", PLUGIN_VERSION, "NT Competitive Vetos plugin version.", FCVAR_DONTRECORD);
 
-    RegAdminCmd("sm_forceveto", Cmd_AdminForceVeto, ADMFLAG_GENERIC, "Admin command to select which team should pick first (skips the coin flip).");
-
     RegAdminCmd("sm_resetveto", Cmd_AdminResetVeto, ADMFLAG_GENERIC, "Admin command to reset a veto in progress.");
     RegAdminCmd("sm_cancelveto", Cmd_AdminResetVeto, ADMFLAG_GENERIC, "Alias for sm_resetveto.");
     RegAdminCmd("sm_clearveto", Cmd_AdminResetVeto, ADMFLAG_GENERIC, "Alias for sm_resetveto.");
@@ -568,64 +566,6 @@ public Action Cmd_CancelVeto(int client, int argc)
             PrintToChatAll("%s Team %s is no longer ready for !veto.", g_sTag, team_name);
         }
     }
-
-    return Plugin_Handled;
-}
-
-public Action Cmd_AdminForceVeto(int client, int argc)
-{
-    if (IsVetoActive())
-    {
-        ReplyToCommand(client, "%s Picks already active. Use !resetveto first.", g_sTag);
-        return Plugin_Handled;
-    }
-    else if (IsPlayingTeamEmpty())
-    {
-        ReplyToCommand(client, "%s Both teams need to have players in them to start the map picks.", g_sTag);
-        return Plugin_Handled;
-    }
-
-    char cmd_name[32];
-    GetCmdArg(0, cmd_name, sizeof(cmd_name));
-
-    if (argc != 1)
-    {
-        ReplyToCommand(client, "%s Usage: %s jinrai/nsf (don't use a team custom name)", g_sTag, cmd_name);
-        return Plugin_Handled;
-    }
-    // Need to confirm comp plugin is loaded before attempting to call optional native.
-    else if (CompPluginIsLoaded() && Competitive_IsLive())
-    {
-        ReplyToCommand(client, "%s Cannot start the veto when the match is live.", g_sTag);
-        return Plugin_Handled;
-    }
-
-    char team_name[7]; // "Jinrai" + '\0'
-    GetCmdArg(1, team_name, sizeof(team_name));
-    int team_that_goes_first;
-    if (StrEqual(team_name, "Jinrai", false))
-    {
-        team_that_goes_first = TEAM_JINRAI;
-    }
-    else if (StrEqual(team_name, "NSF", false))
-    {
-        team_that_goes_first = TEAM_NSF;
-    }
-
-    if (team_that_goes_first != TEAM_JINRAI && team_that_goes_first != TEAM_NSF)
-    {
-        ReplyToCommand(client, "%s Usage: %s jinrai/nsf", g_sTag, cmd_name);
-        return Plugin_Handled;
-    }
-
-    _wants_to_start_veto_jinrai = true;
-    _wants_to_start_veto_nsf = true;
-    _team_a = team_that_goes_first;
-    StartNewVeto();
-
-    PrintToChatAll("%s Veto has been manually started by admin (team %s goes first).",
-        g_sTag,
-        (team_that_goes_first == TEAM_JINRAI) ? "Jinrai" : "NSF"); // Not reusing team_name to ensure Nice Capitalization.
 
     return Plugin_Handled;
 }
