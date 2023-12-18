@@ -14,18 +14,10 @@
 
 #define PLUGIN_VERSION "2.0.0"
 
-// Functions for the corresponding VetoStage action to perform.
-static Function _funcs[VETOSTAGE_ENUM_COUNT] = { INVALID_FUNCTION, ... };
-
-static DataPack _veto = null;
-static ArrayList _results = null;
 static ConVar _pattern = null;
 
-static int _team_a = DEFAULT_TEAM_A;
-
-
-Handle g_hForwardVetoStageUpdate = INVALID_HANDLE;
-Handle g_hForwardVetoPick = INVALID_HANDLE;
+Handle g_hForwardVetoStageUpdate = INVALID_HANDLE,
+    g_hForwardVetoPick = INVALID_HANDLE;
 
 // Debug flag for doing funky testing stuff. Don't enable for regular use.
 //#define DEBUG
@@ -45,8 +37,8 @@ Handle g_hForwardVetoPick = INVALID_HANDLE;
 static bool _wants_to_start_veto_jinrai;
 static bool _wants_to_start_veto_nsf;
 
-ConVar g_hCvar_JinraiName = null;
-ConVar g_hCvar_NsfName = null;
+ConVar g_hCvar_JinraiName = null,
+    g_hCvar_NsfName = null;
 
 // Bit of a hack, but since this killer-info-display panel is the most likely
 // element to cancel the veto view, temporarily disable it during the veto,
@@ -76,6 +68,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
     CreateNative("CompetitiveVetos_IsVetoActive", Native_IsVetoActive);
     CreateNative("CompetitiveVetos_GetVetoMapPoolSize", Native_GetVetoMapPoolSize);
     CreateNative("CompetitiveVetos_GetNameOfMapPoolMap", Native_GetNameOfMapPoolMap);
+
     return APLRes_Success;
 }
 
@@ -118,16 +111,9 @@ public void OnPluginStart()
 #if defined(DEBUG)
     PluginInitSanityCheck();
 #endif
-    // Assign the VetoStage functions.
-    _funcs[COINFLIP] = CoinFlip;
-    _funcs[VETO_A] = VetoMap_A;
-    _funcs[VETO_B] = VetoMap_B;
-    _funcs[VETO_RANDOM] = VetoMap_Random;
-    _funcs[PICK_A] = PickMap_A;
-    _funcs[PICK_B] = PickMap_B;
-    _funcs[PICK_RANDOM] = PickMap_Random;
+    InitVetoFunctionPtrs();
 
-    _pattern = CreateConVar("sm_vetos_pattern", "cvVrpPRx"); // TODO: sensible default
+    _pattern = CreateConVar("sm_vetos_pattern", "cvVrpPR"); // TODO: sensible default
     _pattern.AddChangeHook(OnPatternChanged);
 
     CreateConVar("sm_nt_competitive_vetos_version", PLUGIN_VERSION, "NT Competitive Vetos plugin version.", FCVAR_DONTRECORD);
@@ -151,22 +137,9 @@ public void OnPluginStart()
 
     g_hForwardVetoStageUpdate = CreateGlobalForward("OnMapVetoStageUpdate_v2", ET_Ignore, Param_Cell);
     g_hForwardVetoPick = CreateGlobalForward("OnMapVetoPick", ET_Ignore, Param_Cell, Param_Cell, Param_String);
-
-    char pattern[STAGES_MAX + 1];
-    _pattern.GetString(pattern, sizeof(pattern));
-    int error_index;
-    char error[128];
-    if (!IsVetoPatternValid(pattern, sizeof(pattern), _num_pattern_maps_required,
-        error_index, error, sizeof(error)))
-    {
-        // Fail because we want an initial valid pattern for fallback
-        SetFailState("Pattern validity check failed at index %d: %s",
-            error_index, error);
-    }
+    // TODO: Create OnMapVetoStart, ...End, ...Cancel forwards.
 
     _results = new ArrayList(sizeof(MapChoice));
-
-    BuildVeto(pattern, sizeof(pattern));
 
     RegAdminCmd("sm_vetos_debug_pattern", Cmd_DebugPattern, ADMFLAG_GENERIC);
 }
@@ -183,6 +156,21 @@ public void OnAllPluginsLoaded()
     }
 }
 
+public void OnConfigsExecuted()
+{
+    char pattern[STAGES_MAX + 1];
+    _pattern.GetString(pattern, sizeof(pattern));
+    int error_index;
+    char error[128];
+    if (!IsVetoPatternValid(pattern, sizeof(pattern), _num_pattern_maps_required,
+        error_index, error, sizeof(error)))
+    {
+        ThrowError("Pattern validity check failed at index %d: %s",
+            error_index, error);
+    }
+    BuildVeto(pattern, sizeof(pattern));
+}
+
 public void OnPatternChanged(ConVar convar, const char[] oldValue,
     const char[] newValue)
 {
@@ -196,23 +184,16 @@ public void OnPatternChanged(ConVar convar, const char[] oldValue,
         ThrowError("Pattern validity check failed at index %d: %s",
             error_index, error);
     }
-
     BuildVeto(newValue, strlen(newValue) + 1);
 }
 
 public void OnMapStart()
 {
-    if (!PrecacheSound(g_sSound_Veto))
+    if (!PrecacheSound(g_sSound_Veto) ||
+        !PrecacheSound(g_sSound_Pick) ||
+        !PrecacheSound(g_sSound_Results))
     {
-        SetFailState("Failed to precache sound: \"%s\"", g_sSound_Veto);
-    }
-    else if (!PrecacheSound(g_sSound_Pick))
-    {
-        SetFailState("Failed to precache sound: \"%s\"", g_sSound_Pick);
-    }
-    else if (!PrecacheSound(g_sSound_Results))
-    {
-        SetFailState("Failed to precache sound: \"%s\"", g_sSound_Results);
+        SetFailState("Failed to precache sound");
     }
 
     ClearVeto();
@@ -263,6 +244,8 @@ public Action Cmd_AdminResetVeto(int client, int argc)
         ReplyToCommand(client, "%s No veto was active. Will reset veto internals, regardless.", g_sTag);
     }
 
+    // resetveto fwd here?
+
     return Plugin_Handled;
 }
 
@@ -280,9 +263,7 @@ void ClearVeto()
     _results.Clear();
 
     _team_a = DEFAULT_TEAM_A;
-
-    _wants_to_start_veto_jinrai = false;
-    _wants_to_start_veto_nsf = false;
+    _wants_to_start_veto_jinrai = _wants_to_start_veto_nsf = false;
 
     if (g_hCvar_KidPrintToPanel != null)
     {
@@ -292,20 +273,20 @@ void ClearVeto()
 
 // For a character, passes its corresponding VetoStage by reference.
 // Returns true for a valid VetoStage character, false otherwise.
-bool GetVetoStage(char c, VetoStage_v2& stage)
+bool GetVetoStage(char c, VetoStage_v2& out_stage)
 {
     int index = FindCharInString(_chars, c);
     if (index == -1)
     {
         return false;
     }
-    stage = view_as<VetoStage_v2>(index);
+    out_stage = view_as<VetoStage_v2>(index);
     return true;
 }
 
 // Passes a description of a VetoStage by reference.
 // Returns the number of characters copied.
-int GetVetoStageDescription(VetoStage_v2 s, char[] description, int maxlen)
+int GetVetoStageDescription(VetoStage_v2 s, char[] out_description, int maxlen)
 {
     char descriptions[VETOSTAGE_ENUM_COUNT][] = {
         "Choose team A with coinflip",
@@ -316,7 +297,7 @@ int GetVetoStageDescription(VetoStage_v2 s, char[] description, int maxlen)
         "Pick by team B",
         "Random pick",
     };
-    return strcopy(description, maxlen, descriptions[s]);
+    return strcopy(out_description, maxlen, descriptions[s]);
 }
 
 // Returns whether the VetoStage pattern is valid.
@@ -328,11 +309,11 @@ int GetVetoStageDescription(VetoStage_v2 s, char[] description, int maxlen)
 bool IsVetoPatternValid(const char[] pattern, int pattern_size,
     int& min_maps_required=0,
     int& first_error_index=0,
-    char[] error=NULL_STRING, int error_maxlen=0)
+    char[] out_error=NULL_STRING, int error_maxlen=0)
 {
     if (pattern_size <= 0)
     {
-        strcopy(error, error_maxlen, "Pattern size <1");
+        strcopy(out_error, error_maxlen, "Pattern size <1");
         return false;
     }
     char[] number = new char[pattern_size];
@@ -346,7 +327,7 @@ bool IsVetoPatternValid(const char[] pattern, int pattern_size,
         if (IsCharMB(pattern[i]))
         {
             first_error_index = i;
-            strcopy(error, error_maxlen, "Multibyte character");
+            strcopy(out_error, error_maxlen, "Multibyte character");
             return false;
         }
         if (IsCharNumeric(pattern[i]))
@@ -358,7 +339,7 @@ bool IsVetoPatternValid(const char[] pattern, int pattern_size,
         if (n <= 0)
         {
             first_error_index = i;
-            Format(error, error_maxlen, "Number parsing failed: \"%s\"->%d",
+            Format(out_error, error_maxlen, "Number parsing failed: \"%s\"->%d",
                 number, n);
             return false;
         }
@@ -369,7 +350,7 @@ bool IsVetoPatternValid(const char[] pattern, int pattern_size,
         if (!GetVetoStage(pattern[i], s))
         {
             first_error_index = i;
-            Format(error, error_maxlen, "Failed to find VetoStage for '%c'",
+            Format(out_error, error_maxlen, "Failed to find VetoStage for '%c'",
                 pattern[i]);
             return false;
         }
@@ -377,7 +358,8 @@ bool IsVetoPatternValid(const char[] pattern, int pattern_size,
         if (view_as<int>(s) < 0 || s >= VETOSTAGE_ENUM_COUNT)
         {
             first_error_index = i;
-            Format(error, error_maxlen, "VetoStage out of range (%d)", view_as<int>(s));
+            Format(out_error, error_maxlen, "VetoStage out of range (%d)",
+                view_as<int>(s));
             return false;
         }
 
@@ -393,58 +375,17 @@ bool IsVetoPatternValid(const char[] pattern, int pattern_size,
     }
     if (i > STAGES_MAX)
     {
-        Format(error, error_maxlen,
+        Format(out_error, error_maxlen,
             "Pattern length (%d) is longer than maximum allowed size (%d)",
             i, STAGES_MAX);
         return false;
     }
     if (n_pick_stages < 1)
     {
-        Format(error, error_maxlen, "No map pick actions in the pattern");
+        Format(out_error, error_maxlen, "No map pick actions in the pattern");
         return false;
     }
     return true;
-}
-
-// TODO: encapsulate these functions into static includes as appropriate
-void VetoMap_A()
-{
-    ChooseMap(GetTeamA(), true);
-}
-
-void VetoMap_B()
-{
-    ChooseMap(GetTeamB(), true);
-}
-
-void VetoMap_Random()
-{
-    ChooseMap(TEAM_NONE, true);
-}
-
-int GetTeamA()
-{
-    return _team_a;
-}
-
-int GetTeamB()
-{
-    return GetOtherTeam(GetTeamA());
-}
-
-void PickMap_A()
-{
-    ChooseMap(GetTeamA(), false);
-}
-
-void PickMap_B()
-{
-    ChooseMap(GetTeamB(), false);
-}
-
-void PickMap_Random()
-{
-    ChooseMap(TEAM_NONE, false);
 }
 
 // Returns TEAM_JINRAI for TEAM_NSF and vice versa.
@@ -483,31 +424,6 @@ bool ProcessVetoStage(DataPack veto, any& result=0)
         ThrowError("Call failed");
     }
     return true;
-}
-
-// Assumes valid pattern; it's up to the caller to verify validity with
-// IsVetoPatternValid before calling this!
-// The passed in DataPack will be closed if it exists.
-// Passes a new DataPack by reference with its position reset.
-// Caller is responsible for the memory of the new DataPack.
-void BuildVeto(const char[] pattern, int pattern_size)
-{
-    ClearVeto();
-    _veto = new DataPack();
-    for (int i = 0; i < pattern_size && pattern[i] != '\0'; ++i)
-    {
-        VetoStage_v2 s;
-        if (!GetVetoStage(pattern[i], s))
-        {
-            ThrowError("Failed to get VetoStage for i %d from \"%s\" \
-from symbols \"%s\"",
-                i, pattern, _chars
-            );
-        }
-        _veto.WriteFunction(_funcs[s]);
-    }
-    _veto.Reset();
-    _char_pos = 0;
 }
 
 public Action Cmd_StartVeto(int client, int argc)
@@ -801,184 +717,6 @@ void CoinFlip()
 bool IsVeto(VetoStage_v2 s)
 {
     return s == VETO_A || s == VETO_B || s ==  VETO_RANDOM;
-}
-
-void ChooseMap(const int team, const bool is_veto)
-{
-    if (strlen(_pending_map_pick_nomination_for_vote) != 0)
-    {
-        ThrowError("_pending_map_pick_nomination_for_vote not empty");
-    }
-    if (_num_pattern_maps_required <= 0)
-    {
-        ThrowError("Invalid _num_pattern_maps_required size: %d",
-            _num_pattern_maps_required);
-    }
-
-    int picking_team = team;
-#if defined DEBUG_ALL_VETOS_BY_JINRAI
-    picking_team = TEAM_JINRAI;
-#endif
-
-    DataPack dp_maps = new DataPack();
-    bool all_maps_exist_on_server;
-    int veto_pool_size = GetMaps(dp_maps, all_maps_exist_on_server);
-    if (veto_pool_size == -1)
-    {
-        delete dp_maps;
-        ThrowError("Failed to get maps");
-    }
-    else if (veto_pool_size < _num_pattern_maps_required)
-    {
-        delete dp_maps;
-        ThrowError("Need at least %d maps on veto pool (got %d)",
-            _num_pattern_maps_required);
-    }
-    else if (!all_maps_exist_on_server)
-    {
-        PrintToChatAll("%s Warning: the veto map pool contains map(s) that \
-don't exist on this server!", g_sTag);
-    }
-
-    bool is_random_choice = (team == TEAM_NONE);
-
-    if (is_random_choice)
-    {
-        dp_maps.Reset();
-        DataPack dp_unchosen_maps = new DataPack();
-        int num_remaining_maps;
-        char map_name_buffer[PLATFORM_MAX_PATH];
-        MapChoice choice;
-        for (int i = 0; i < veto_pool_size; ++i)
-        {
-            dp_maps.ReadString(map_name_buffer, sizeof(map_name_buffer));
-            bool is_result;
-
-            int res_len = _results.Length;
-
-            for (int j = 0; j < res_len; ++j)
-            {
-                _results.GetArray(j, choice);
-                if (StrEqual(map_name_buffer, choice.map))
-                {
-                    is_result = true;
-                    break;
-                }
-            }
-            if (!is_result)
-            {
-                dp_unchosen_maps.WriteString(map_name_buffer);
-                ++num_remaining_maps;
-            }
-        }
-        if (num_remaining_maps == 0)
-        {
-            delete dp_maps;
-            delete dp_unchosen_maps;
-            ThrowError("No maps left to choose from");
-        }
-
-        int third_map_index = GetURandomInt() % num_remaining_maps;
-
-        dp_unchosen_maps.Reset();
-        for (int i = 0; i < third_map_index; ++i)
-        {
-            dp_unchosen_maps.ReadString(map_name_buffer, sizeof(map_name_buffer));
-        }
-        dp_unchosen_maps.ReadString(map_name_buffer, sizeof(map_name_buffer));
-        delete dp_unchosen_maps;
-        delete dp_maps;
-
-        if (GetCurrentVetoStage() == PICK_RANDOM)
-        {
-            SetMapVetoPick(team, map_name_buffer);
-        }
-
-        return;
-    } // is_random_choice
-
-    if (team != TEAM_JINRAI && team != TEAM_NSF)
-    {
-        delete dp_maps;
-        ThrowError("Invalid picking team: %d", team);
-    }
-
-    Menu picker_menu = new Menu(MenuHandler_DoPick, (MenuAction_Select | MenuAction_End));
-    picker_menu.ExitButton = false;
-
-    Panel spec_panel = new Panel();
-    spec_panel.SetTitle(g_sTag);
-    spec_panel.DrawText(" ");
-
-    char jinrai_name[MAX_CUSTOM_TEAM_NAME_LEN];
-    char nsf_name[MAX_CUSTOM_TEAM_NAME_LEN];
-    GetCompetitiveTeamName(TEAM_JINRAI, jinrai_name, sizeof(jinrai_name));
-    GetCompetitiveTeamName(TEAM_NSF, nsf_name, sizeof(nsf_name));
-
-    picker_menu.SetTitle("Your team's map %s:", is_veto ? "VETO" : "PICK");
-    picker_menu.Pagination = Min(veto_pool_size, 7);
-
-    spec_panel.DrawText(is_veto ? "Waiting for veto by:" : "Waiting for pick by:");
-    spec_panel.DrawText((picking_team == TEAM_JINRAI) ? jinrai_name : nsf_name);
-    spec_panel.DrawText(" ");
-
-    char map_name_buffer[PLATFORM_MAX_PATH];
-    char buffer[PLATFORM_MAX_PATH + MAX_CUSTOM_TEAM_NAME_LEN + 11 + 1];
-    dp_maps.Reset();
-    for (int i = 0; i < veto_pool_size; ++i)
-    {
-        dp_maps.ReadString(map_name_buffer, sizeof(map_name_buffer));
-        int res_len = _results.Length;
-        MapChoice choice;
-        bool found;
-        for (int j = 0; j < res_len; ++j)
-        {
-            _results.GetArray(j, choice);
-            if (StrEqual(map_name_buffer, choice.map))
-            {
-                Format(buffer, sizeof(buffer), "%s (%s %s)",
-                    choice.map,
-                    choice.team,
-                    IsVeto(choice.stage) ? "VETO" : "PICK"
-                );
-                picker_menu.AddItem(ITEM_DISABLED_STR, buffer, ITEMDRAW_DISABLED);
-                spec_panel.DrawText(buffer);
-
-                found = true;
-                break;
-            }
-        }
-        if (!found)
-        {
-            picker_menu.AddItem(map_name_buffer, map_name_buffer, ITEMDRAW_DEFAULT);
-            spec_panel.DrawText(map_name_buffer);
-        }
-    }
-    delete dp_maps;
-
-    int num_picker_menu_users;
-    for (int client = 1; client <= MaxClients; ++client)
-    {
-        if (!IsClientInGame(client) || IsFakeClient(client))
-        {
-            continue;
-        }
-
-        if (GetClientTeam(client) == picking_team)
-        {
-            picker_menu.Display(client, MENU_TIME_FOREVER);
-            ++num_picker_menu_users;
-        }
-        else
-        {
-            spec_panel.Send(client, MenuHandler_DoNothing, MENU_TIME_FOREVER);
-        }
-    }
-    if (num_picker_menu_users == 0)
-    {
-        delete picker_menu;
-    }
-    delete spec_panel;
 }
 
 VetoStage_v2 GetCurrentVetoStage()

@@ -42,7 +42,6 @@ public Action Timer_FakeCoinFlip(Handle timer)
 
     Call_StartForward(g_hForwardVetoStageUpdate);
     Call_PushCell(VETO_STAGE_COIN_FLIP_RESULT);
-    Call_PushCell(_first_veto_team);
     Call_Finish();
 
     CreateTimer(DEBUG_FAKE_VETOS_TIMER, Timer_FakeFirstVeto);
@@ -71,7 +70,6 @@ public Action Timer_FakeFirstVeto(Handle timer)
 
     Call_StartForward(g_hForwardVetoStageUpdate);
     Call_PushCell(VETO_STAGE_FIRST_TEAM_BAN);
-    Call_PushCell(-1);
     Call_Finish();
 
     CreateTimer(DEBUG_FAKE_VETOS_TIMER, Timer_FakeSecondVeto);
@@ -82,7 +80,6 @@ public Action Cmd_AdminDebug_FakeVeto(int client, int argc)
 {
     Call_StartForward(g_hForwardVetoStageUpdate);
     Call_PushCell(VETO_STAGE_COIN_FLIP);
-    Call_PushCell(-1);
     Call_Finish();
 
     CreateTimer(DEBUG_FAKE_VETOS_TIMER, Timer_FakeCoinFlip);
@@ -116,7 +113,6 @@ public Action Timer_FakeSecondVeto(Handle timer)
 
     Call_StartForward(g_hForwardVetoStageUpdate);
     Call_PushCell(VETO_STAGE_SECOND_TEAM_BAN);
-    Call_PushCell(-1);
     Call_Finish();
 
     CreateTimer(DEBUG_FAKE_VETOS_TIMER, Timer_FakeSecondPick);
@@ -150,7 +146,6 @@ public Action Timer_FakeSecondPick(Handle timer, DataPack picked_maps)
 
     Call_StartForward(g_hForwardVetoStageUpdate);
     Call_PushCell(VETO_STAGE_SECOND_TEAM_PICK);
-    Call_PushCell(-1);
     Call_Finish();
 
     CreateTimer(DEBUG_FAKE_VETOS_TIMER, Timer_FakeFirstPick);
@@ -184,7 +179,6 @@ public Action Timer_FakeFirstPick(Handle timer)
 
     Call_StartForward(g_hForwardVetoStageUpdate);
     Call_PushCell(VETO_STAGE_FIRST_TEAM_PICK);
-    Call_PushCell(-1);
     Call_Finish();
 
     CreateTimer(DEBUG_FAKE_VETOS_TIMER, Timer_RandomThirdPick);
@@ -211,13 +205,11 @@ public Action Timer_RandomThirdPick(Handle timer, DataPack picked_maps)
 
     Call_StartForward(g_hForwardVetoStageUpdate);
     Call_PushCell(VETO_STAGE_RANDOM_THIRD_MAP);
-    Call_PushCell(-1);
     Call_Finish();
 
     ClearVeto();
     Call_StartForward(g_hForwardVetoStageUpdate);
     Call_PushCell(VETO_STAGE_INACTIVE);
-    Call_PushCell(-1);
     Call_Finish();
 
     for (int i = 0; i < sizeof(_is_random_map_picked); ++i) {

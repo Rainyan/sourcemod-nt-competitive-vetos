@@ -7,7 +7,7 @@
 // after consecutive coin flips.
 
 enum VetoStage_v2 {
-    COINFLIP = 0,    // Flipping coin on who gets assigned as "Team A".
+    COINFLIP = 0,    // Flipping coin on who gets assigned as "Team A". Can be called multiple times.
     VETO_A,          // Team A vetoes a map.
     VETO_B,          // Team B vetoes a map.
     VETO_RANDOM,     // A map is randomly vetoed.
