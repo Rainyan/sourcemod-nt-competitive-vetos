@@ -21,13 +21,6 @@ Handle g_hForwardVetoStageUpdate = INVALID_HANDLE,
 // Debug flag for doing funky testing stuff. Don't enable for regular use.
 //#define DEBUG
 
-// Debug flag to simulate a random fake veto process. Don't enable for regular use.
-//#define DEBUG_FAKE_VETOS
-#if defined(DEBUG_FAKE_VETOS)
-// How long to wait between fake veto stages
-#define DEBUG_FAKE_VETOS_TIMER 5.0
-#endif
-
 // Debug flag for forcing all the vetos on the Jinrai team side.
 // Note that it's expected that this will report incorrect vote results for NSF,
 // as you would be voting from Jinrai in their stead.
