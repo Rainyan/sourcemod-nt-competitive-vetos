@@ -135,14 +135,6 @@ public void OnPluginStart()
     RegAdminCmd("sm_cancelveto", Cmd_AdminResetVeto, ADMFLAG_GENERIC, "Alias for sm_resetveto.");
     RegAdminCmd("sm_clearveto", Cmd_AdminResetVeto, ADMFLAG_GENERIC, "Alias for sm_resetveto.");
 
-#if defined(DEBUG)
-    RegAdminCmd("sm_debug_redisplay_veto", Cmd_AdminDebug_ReDisplayVeto, ADMFLAG_GENERIC, "Re-display the veto.");
-#endif
-
-#if defined(DEBUG_FAKE_VETOS)
-    RegAdminCmd("sm_debug_fake_veto", Cmd_AdminDebug_FakeVeto, ADMFLAG_GENERIC, "Simulate/fake a random veto process.");
-#endif
-
     RegConsoleCmd("sm_veto", Cmd_StartVeto, "Ready the team for map picks/vetos.");
     RegConsoleCmd("sm_unveto", Cmd_CancelVeto, "Unready the team for map picks/vetos.");
 
@@ -259,14 +251,6 @@ public Action Cmd_AdminResetVeto(int client, int argc)
 
     return Plugin_Handled;
 }
-
-#if defined(DEBUG)
-public Action Cmd_AdminDebug_ReDisplayVeto(int client, int argc)
-{
-    DoVeto();
-    return Plugin_Handled;
-}
-#endif
 
 void ClearVeto()
 {
@@ -499,11 +483,14 @@ public Action Cmd_StartVeto(int client, int argc)
         }
     }
 
-    if (!CheckIfReadyToStartVeto())
+    if (IsReadyToStartVeto())
+    {
+        StartNewVeto();
+    }
+    else
     {
         char other_team_name[MAX_CUSTOM_TEAM_NAME_LEN];
         GetCompetitiveTeamName(GetOpposingTeam(team), other_team_name, sizeof(other_team_name));
-
         PrintToChatAll("%s Waiting for team %s to confirm with !veto.", g_sTag, other_team_name);
     }
 
@@ -575,33 +562,18 @@ int GetRandomPlayerTeam()
     return GetURandomInt() % 2 == 0 ? TEAM_JINRAI : TEAM_NSF;
 }
 
-bool CheckIfReadyToStartVeto()
+bool IsReadyToStartVeto()
 {
-    if (IsVetoActive() || !_wants_to_start_veto_jinrai || !_wants_to_start_veto_nsf)
-    {
-        return false;
-    }
-    StartNewVeto();
-    return true;
+    return (
+        !IsVetoActive() &&
+        _wants_to_start_veto_jinrai &&
+        _wants_to_start_veto_nsf
+    );
 }
 
 void StartNewVeto()
 {
-    if (IsVetoActive())
-    {
-        ThrowError("Called while another veto is already active");
-    }
-    else if (ResetPicksIfShould())
-    {
-        return;
-    }
-
-    ClearVeto();
-
-    PrintToChatAll("%s Starting map picks/veto...", g_sTag);
-    EmitSoundToAll(g_sSound_Results);
-
-    CreateTimer(0.1, Timer_StartVeto, _, TIMER_FLAG_NO_MAPCHANGE);
+    // TODO!
 }
 
 void CoinFlip()
@@ -620,6 +592,8 @@ void CoinFlip()
     char coinflip_anim[][] = { "-", "\\", "|", "/" };
     // How many 180 coin flips for the full animation, ie. 3 = 1.5 full rotations.
 #define NUM_COINFLIP_ANIMATION_HALF_ROTATIONS 3
+
+    int show_cointflip_results_duration = 5;
 
     if (coinflip_stage++ < sizeof(coinflip_anim) * NUM_COINFLIP_ANIMATION_HALF_ROTATIONS)
     {
@@ -652,8 +626,7 @@ void CoinFlip()
         PrintToConsoleAll("%s %s", g_sTag, text);
         LogToGame("%s %s", g_sTag, text);
 
-#define COINFLIP_RESULTS_SHOW_DURATION 5
-        CreateTimer(float(COINFLIP_RESULTS_SHOW_DURATION), Timer_StartVeto, _, TIMER_FLAG_NO_MAPCHANGE);
+        CreateTimer(float(show_cointflip_results_duration), Timer_StartVeto, _, TIMER_FLAG_NO_MAPCHANGE);
     }
 
     for (int client = 1; client <= MaxClients; ++client)
@@ -662,7 +635,7 @@ void CoinFlip()
         {
             continue;
         }
-        panel.Send(client, MenuHandler_DoNothing, COINFLIP_RESULTS_SHOW_DURATION);
+        panel.Send(client, MenuHandler_DoNothing, show_cointflip_results_duration);
     }
     delete panel;
 }
@@ -883,7 +856,11 @@ void AnnounceMaps()
 
     EmitSoundToAll(g_sSound_Results);
 
-    CreateTimer(5.0, Timer_MapChangeInfoHelper);
+    // Don't need to show this if the automatic veto nextmap plugin exists.
+    if (FindConVar("sm_nt_competitive_vetos_autonextmap_version") == null)
+    {
+        CreateTimer(5.0, Timer_MapChangeInfoHelper);
+    }
 }
 
 void GetCompetitiveTeamName(const int team, char[] out_name, const int max_len)
